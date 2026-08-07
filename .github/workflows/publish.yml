@@ -1,0 +1,55 @@
+name: Build and publish package as release
+
+on:
+  push:
+    tags:
+      - 'v*' # Only publish when a pushed tag starts with v
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Add custom debian repo
+        run: |
+          # Install necessary dependencies for setup
+          sudo apt update && sudo apt install -y curl gnupg
+
+          # Add my personal package repository
+          echo "deb [signed-by=/usr/share/keyrings/myrepo.gpg] https://sleiphan.github.io/debian-repo stable main" | sudo tee /etc/apt/sources.list.d/myrepo.list
+
+          # Add my package repository's public gpg key
+          curl -fsSL https://sleiphan.github.io/debian-repo/public.key | gpg --dearmor -o /usr/share/keyrings/myrepo.gpg
+
+      - name: Install build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential cmake liburing-dev libctools-dev
+
+      - name: Build
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF
+          cmake --build build
+
+      - name: Create Debian package
+        run: |
+          cpack --config build/CPackConfig.cmake -G DEB
+
+      - name: Simplify package file names
+        run: |
+          mv ./*dev.deb ./mcon-dev.deb
+          mv ./*runtime.deb ./mcon-runtime.deb
+
+      - name: Upload package as release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

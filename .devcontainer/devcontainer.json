@@ -1,0 +1,28 @@
+{
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+            // Makes the host docker socket available from inside the devcontainer
+            // DOCUMENTATION FOR THIS FEATURE: https://github.com/devcontainers/features/tree/main/src/docker-outside-of-docker
+            "moby": false
+        }
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "twxs.cmake",
+                "ms-vscode.cmake-tools",
+                "ms-vscode.cpptools-extension-pack",
+                "go2sh.cmake-integration-vscode"
+            ]
+        }
+    },
+    "postCreateCommand": "chmod +x ./.devcontainer/post-create-command.sh && ./.devcontainer/post-create-command.sh",
+    "securityOpt": [ "seccomp=unconfined" ],
+    "shutdownAction": "stopContainer"
+    // SSH-agent forwarding: https://code.visualstudio.com/remote/advancedcontainers/sharing-git-credentials
+    //                       https://github.com/microsoft/vscode-remote-release/issues/106#issuecomment-558494074
+}
