@@ -2,7 +2,6 @@
 #define MCON_EVENT
 
 #include "mcon/types.h"
-#include <errno.h>
 
 enum mcon_event_type {
     MCON_EVENT_NONE = 0,
