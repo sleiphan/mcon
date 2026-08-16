@@ -20,6 +20,7 @@ include(GNUInstallDirs)
 
 
 add_subdirectory(src)
+add_subdirectory(apps)
 
 
 option(BUILD_TESTS "Build tests" ON)

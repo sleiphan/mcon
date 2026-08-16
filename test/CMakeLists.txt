@@ -10,8 +10,8 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 include(GoogleTest)
 
-set(TEST "T-placeholder")
-add_executable(${TEST} placeholder.cpp)
-target_link_libraries(${TEST} PRIVATE ${PROJECT_NAME} GTest::gtest_main)
-target_include_directories(${TEST} PRIVATE ${CMAKE_SOURCE_DIR}/src/${PROJECT_NAME})
-gtest_discover_tests(${TEST})
+# set(TEST "T-placeholder")
+# add_executable(${TEST} placeholder.cpp)
+# target_link_libraries(${TEST} PRIVATE ${PROJECT_NAME} GTest::gtest_main)
+# target_include_directories(${TEST} PRIVATE ${CMAKE_SOURCE_DIR}/src/${PROJECT_NAME})
+# gtest_discover_tests(${TEST})
