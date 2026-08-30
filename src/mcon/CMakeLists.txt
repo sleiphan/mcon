@@ -1,4 +1,5 @@
 target_sources(${PROJECT_NAME} PUBLIC 
+    bitset.c
     event_processing_io_uring.c
     io_queue.c
     limits.c
