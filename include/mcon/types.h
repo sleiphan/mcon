@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+typedef unsigned long long io_uring_data_t;
+
 typedef uint32_t mcon_session_idx;
 
 typedef uint16_t mcon_uring_queue_size_t;

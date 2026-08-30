@@ -18,9 +18,12 @@ struct mcon_io_uring_entry {
     mcon_session_idx session;
 };
 
+_Static_assert(sizeof(struct mcon_io_uring_entry) == sizeof(io_uring_data_t),
+    "mcon_io_uring_entry must fit perfectly into io_uring SQEs data field");
+
 union mcon_io_uring_data {
     struct mcon_io_uring_entry entry;
-    unsigned long long data;
+    io_uring_data_t data;
 };
 
 #endif // MCON_IO_URING_OPERATION
