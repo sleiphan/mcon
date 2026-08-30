@@ -42,5 +42,34 @@ TEST(mcon, placeholder) {
     if (mcon_start(mcon, server_socket, epoll_fd))
         FAIL();
 
+
+
+    int client_fd = connect_to_server("0.0.0.0", 8080);
+    const char payload[] = "Hello world!\n";
+    if (write(client_fd, payload, sizeof(payload)) < 0)
+        FAIL();
+    shutdown(client_fd, SHUT_WR);
+
+    const unsigned int max_events = 32;
+    struct epoll_event events[max_events];
+    struct mcon_event mcon_events[max_events];
+
+    bool payload_received = false;
+
+    do {
+        int events_ready = epoll_wait(epoll_fd, events, max_events, 5000);
+        if (events_ready < 0) {
+            if (errno == EINTR) continue;
+            FAIL();
+        }
+
+        for (int i = 0; i < events_ready; i++) {
+            if (mcon_process_event(mcon, events[i], mcon_events, max_events) < 0)
+                FAIL();
+
+            continue;
+        }
+    } while (mcon_active_session_count(mcon) > 0 || !payload_received);
+
     mcon_destroy(mcon);
 }

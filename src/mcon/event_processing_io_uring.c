@@ -177,12 +177,5 @@ int mcon_process_io_uring_event(struct mcon* mcon, struct mcon_event* events, un
         event_count += err;
     }
 
-    // Submit new SQEs
-    const int sqes_to_submit = mcon->configuration.io_uring_queue_size - mcon->state.sqe_in_flight;
-    if (sqes_to_submit > 0) {
-        mcon->state.sqe_in_flight += io_queue_pop_into_ring(&mcon->io_queue, &mcon->ring, sqes_to_submit);
-        io_uring_submit(&mcon->ring);
-    }
-
     return event_count;
 }

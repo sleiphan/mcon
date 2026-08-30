@@ -50,7 +50,7 @@ int mcon_create(struct mcon** dst, struct mcon_config config) {
 
     // Populate mcon instance
     *mcon = (struct mcon) {
-        .instance_id = 0xAAAA,
+        .instance_id = 0xAAAA, // TODO: allow for multiple mcon instances
         .epoll_fd = -1,
         .server_socket_fd = -1,
         .io_uring_eventfd = io_uring_eventfd,
@@ -173,12 +173,18 @@ int mcon_process_event(struct mcon *mcon, const struct epoll_event epoll_event, 
 
     const struct mcon_epoll_entry event_data = mcon_decode_epoll_entry(epoll_event.data);
 
+    int err;
     switch (event_data.source) {
-        case MCON_EPOLL_SOURCE_SERVER_SOCKET: return mcon_process_server_socket_event(mcon, epoll_event.events, event_data, events, event_capacity);
+        case MCON_EPOLL_SOURCE_SERVER_SOCKET: err = mcon_process_server_socket_event(mcon, epoll_event.events, event_data, events, event_capacity); break;
         case MCON_EPOLL_SOURCE_TIMEOUT: break;
-        case MCON_EPOLL_SOURCE_IO_URING: return mcon_process_io_uring_event(mcon, events, event_capacity);
-        case MCON_EPOLL_SOURCE_SESSION: return mcon_process_session_event(mcon, epoll_event.events, event_data, events, event_capacity);
+        case MCON_EPOLL_SOURCE_IO_URING: err = mcon_process_io_uring_event(mcon, events, event_capacity); break;
+        case MCON_EPOLL_SOURCE_SESSION: err = mcon_process_session_event(mcon, epoll_event.events, event_data, events, event_capacity); break;
     }
+
+    if (io_uring_sq_ready(&mcon->ring) > 0)
+        io_uring_submit(&mcon->ring);
+
+    return err;
 }
 
 
