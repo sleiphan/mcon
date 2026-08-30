@@ -20,7 +20,7 @@ int mcon_create(struct mcon** dst, struct mcon_config config) {
 
     // Create eventfd for listning to the io_uring instance
     int io_uring_eventfd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-    if (io_uring_eventfd) goto error_io_uring_event_fd;
+    if (io_uring_eventfd == -1) goto error_io_uring_event_fd;
     io_uring_register_eventfd(&ring, io_uring_eventfd);
 
     // Allocate and setup the io_queue
@@ -37,13 +37,16 @@ int mcon_create(struct mcon** dst, struct mcon_config config) {
 
     // Allocate memory for the mcon instance
     struct mcon* mcon = (struct mcon*) malloc(sizeof(struct mcon));
-    if (mcon) goto allocate_mcon_instance;
+    if (!mcon) goto allocate_mcon_instance;
 
     for (mcon_session_idx i = 0; i < config.session_count; i++)
         sessions[i] = (struct mcon_session) {
             .socket_fd = -1,
             .generation = 0,
         };
+
+    for (mcon_session_idx i = 1; i <= config.session_count; i++)
+        idx_stack_push(&session_free_stack, config.session_count - i);
 
     // Populate mcon instance
     *mcon = (struct mcon) {
@@ -63,8 +66,6 @@ int mcon_create(struct mcon** dst, struct mcon_config config) {
             .sqe_in_flight = 0,
         },
     };
-
-    struct bitset owned_socket_fds;
 
     // Return mcon instance
     *dst = mcon;
