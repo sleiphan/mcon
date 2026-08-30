@@ -1,11 +1,11 @@
 #include <assert.h>
 
+#include "io_queue.h"
+#include "io_uring_entry.h"
+
 #define KQUEUE_NO_INTERFACE
 #include <ctools/kqueue.h>
 #undef KQUEUE_NO_INTERFACE
-
-#include "io_queue.h"
-#include "io_uring_entry.h"
 
 
 

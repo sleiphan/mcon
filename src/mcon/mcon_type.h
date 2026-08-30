@@ -1,7 +1,10 @@
 #ifndef MCON_TYPE
 #define MCON_TYPE
 
+
 #include <liburing.h>
+
+#define BITSET_NO_IMPLEMENTATION
 #include <ctools/bitset.h>
 
 #include "mcon/types.h"
@@ -16,6 +19,8 @@ struct mcon_state {
 };
 
 struct mcon {
+    uint16_t instance_id;
+
     int server_socket_fd;
     int epoll_fd;
 
@@ -31,8 +36,6 @@ struct mcon {
     struct io_queue io_queue;
 
     struct mcon_state state;
-
-    struct bitset owned_socket_fds;
 };
 
 #endif // MCON_TYPE

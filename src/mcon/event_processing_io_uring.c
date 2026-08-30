@@ -5,6 +5,7 @@
 #include "epoll_entry.h"
 #include "io_uring_entry.h"
 #include "mcon/event.h"
+#include "mcon/constants.h"
 #include "mcon_type.h"
 #include "session_helpers.h"
 
@@ -17,7 +18,7 @@ int _process_accept(struct mcon* mcon, struct io_uring_cqe* cqe, struct mcon_eve
     if (cqe->res < 0) {
         *events = (struct mcon_event) {
             .result = cqe->res,
-            .session = (mcon_session_idx) -1,
+            .session = MCON_NO_SESSION,
             .type = MCON_EVENT_NEW_CONNECTION,
         };
 
@@ -30,22 +31,18 @@ int _process_accept(struct mcon* mcon, struct io_uring_cqe* cqe, struct mcon_eve
 
     const int socket_fd = cqe->res;
 
-    // session_prep_for_new_client(session);
-    mcon->sessions[new_session].socket_fd = socket_fd;
+    // Prepare the session
+    session_prep_for_new_client(mcon, new_session, socket_fd);
 
     // Add socket to interest list
-    union mcon_epoll_data epoll_data = (union mcon_epoll_data) {
-        .entry = (struct mcon_epoll_entry) {
-            .session = new_session,
-            .source = MCON_EPOLL_SOURCE_SESSION,
-        }
-    };
     int epoll_err = epoll_ctl(mcon->epoll_fd, EPOLL_CTL_ADD, socket_fd, &(struct epoll_event) {
-        .data.u64 = ((union mcon_epoll_data) {
-            .entry = (struct mcon_epoll_entry) {
-                .session = new_session,
+        .data = mcon_encode_epoll_entry((struct mcon_epoll_entry) {
+                .instance_id = mcon->instance_id,
+                .generation = mcon->sessions[new_session].generation,
                 .source = MCON_EPOLL_SOURCE_SESSION,
-            }}).data,
+                .session = new_session,
+                .reserved = 0,
+            }),
         .events = EPOLLIN | EPOLLHUP | EPOLLRDHUP | EPOLLERR | EPOLLET,
     });
 
@@ -140,7 +137,7 @@ int _process_close(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mco
     mcon->active_session_count--;
 
     // Make the session ready for a new connection
-    session_reset(mcon, io_entry.session);
+    session_reset_after_close(mcon, io_entry.session);
 
     // Return the session to the free stack
     if (idx_stack_push(&mcon->session_free_stack, io_entry.session))

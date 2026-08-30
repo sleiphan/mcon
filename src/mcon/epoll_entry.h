@@ -35,6 +35,11 @@ enum mcon_epoll_source {
     MCON_EPOLL_SOURCE_SESSION,
 };
 
+static inline bool mcon_is_valid_source(enum mcon_epoll_source source) {
+    return (source >= 0) & (source <= MCON_EPOLL_SOURCE_SESSION);
+}
+
+
 struct mcon_epoll_entry {
     // A discriminator value to identify whether
     // an event belongs to a given mcon instance.

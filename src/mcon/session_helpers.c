@@ -1,6 +1,15 @@
 #include "mcon_type.h"
 #include "session_helpers.h"
 
-void session_reset(const struct mcon* mcon, const mcon_session_idx session) {
+void session_reset_after_close(const struct mcon* mcon, const mcon_session_idx session) {
     mcon->sessions[session].socket_fd = -1;
+
+    // Iterate session to next generation, causing any stale or leftover events to be discarded.
+    uint8_t rollover = mcon->sessions[session].generation == 0xff;
+    mcon->sessions[session].generation += !rollover;
+    mcon->sessions[session].generation *= !rollover;
+}
+
+void session_prep_for_new_client(const struct mcon* mcon, const mcon_session_idx session, int client_socket_fd) {
+    mcon->sessions[session].socket_fd = client_socket_fd;
 }

@@ -20,6 +20,12 @@ void mcon_destroy(struct mcon* mcon);
 // Actions
 
 int mcon_start(struct mcon* mcon, int listening_socket_fd, int epoll_fd);
+
+/// @brief After successfully calling this function, the mcon instance will continue processing 
+/// existing connections without establishing new ones. The shutdown is complete when all connections
+/// managed by this instance are closed.
+/// @param mcon The mcon instance to shut down.
+/// @return When successful, returns 0. When an error occurs, returns -1 and errno is set to indicate the error.
 int mcon_shutdown(struct mcon* mcon);
 int mcon_process_event(struct mcon *mcon, const struct epoll_event epoll_event, struct mcon_event *events, unsigned int event_capacity);
 
