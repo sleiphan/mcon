@@ -46,7 +46,10 @@ TEST(mcon, placeholder) {
 
     int client_fd = connect_to_server("0.0.0.0", 8080);
     const char payload[] = "Hello world!\n";
-    if (write(client_fd, payload, sizeof(payload)) < 0)
+    char input_buffer[sizeof(payload)];
+    memset(input_buffer, 0, sizeof(payload));
+
+    if (write(client_fd, payload, sizeof(payload)) != sizeof(payload))
         FAIL();
     shutdown(client_fd, SHUT_WR);
 
@@ -54,7 +57,7 @@ TEST(mcon, placeholder) {
     struct epoll_event events[max_events];
     struct mcon_event mcon_events[max_events];
 
-    bool payload_received = false;
+    bool client_done_writing = false;
 
     do {
         int events_ready = epoll_wait(epoll_fd, events, max_events, 5000);
@@ -64,12 +67,46 @@ TEST(mcon, placeholder) {
         }
 
         for (int i = 0; i < events_ready; i++) {
-            if (mcon_process_event(mcon, events[i], mcon_events, max_events) < 0)
-                FAIL();
+            int num_mcon_events = mcon_process_event(mcon, events[i], mcon_events, max_events);
+
+            for (int i = 0; i < num_mcon_events; i++) {
+                struct mcon_event evt = mcon_events[i];
+
+                switch (evt.type) {
+                    case MCON_EVENT_NEW_CONNECTION: break;
+                    case MCON_EVENT_CLOSE_COMPLETE: break;
+
+                    case MCON_EVENT_READ_RDY:
+                        mcon_session_read(mcon, evt.session, input_buffer, sizeof(input_buffer));
+                        break;
+                    case MCON_EVENT_READ_COMPLETE:
+                        EXPECT_STREQ(payload, input_buffer);
+                        if (!evt.result)
+                            mcon_session_close(mcon, evt.session);
+                        break;
+                    case MCON_EVENT_REMOTE_HANGUP:
+                        client_done_writing = true;
+                        // mcon_session_drain(mcon, evt.session, sizeof(input_buffer));
+                        break;
+                    case MCON_EVENT_DRAIN_COMPLETE:
+                        if (evt.result == 0)
+                            mcon_session_close(mcon, evt.session);
+                        else if (evt.result > 0)
+                            mcon_session_drain(mcon, evt.session, sizeof(input_buffer));
+                        else
+                            FAIL();
+                        break;
+                    default:
+                        FAIL();
+                }
+            }
 
             continue;
         }
-    } while (mcon_active_session_count(mcon) > 0 || !payload_received);
+
+        if (mcon_submit(mcon) < 0)
+            FAIL();
+    } while (mcon_active_session_count(mcon) > 0 || !client_done_writing);
 
     mcon_destroy(mcon);
 }

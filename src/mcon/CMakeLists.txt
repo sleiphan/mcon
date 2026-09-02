@@ -7,7 +7,6 @@ target_sources(${PROJECT_NAME} PUBLIC
     io_queue.c
     limits.c
     mcon.c
-    mcon_helpers.c
     session.c
     session_helpers.c
     socket.c

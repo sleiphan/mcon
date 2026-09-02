@@ -8,6 +8,7 @@
 #include "mcon/constants.h"
 #include "mcon_type.h"
 #include "session_helpers.h"
+#include "constants.h"
 
 int _process_accept(struct mcon* mcon, struct io_uring_cqe* cqe, struct mcon_event* events, unsigned int max_events) {
     // We need space to emit one event
@@ -43,7 +44,7 @@ int _process_accept(struct mcon* mcon, struct io_uring_cqe* cqe, struct mcon_eve
                 .session = new_session,
                 .reserved = 0,
             }),
-        .events = EPOLLIN | EPOLLHUP | EPOLLRDHUP | EPOLLERR | EPOLLET,
+        .events = MCON_CLIENT_SOCKET_SUBSCRIBED_EVENTS | (mcon->configuration.edge_triggered_client_events ? EPOLLET : 0),
     });
 
     // Cleanup if the call to epoll failed
@@ -81,26 +82,6 @@ int _process_read(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mcon
     return 1;
 }
 
-int _process_drain(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mcon_io_uring_entry io_entry, struct mcon_event* events, unsigned int max_events) {
-    // We need space to emit one event
-    if (max_events < 1)
-        return 0;
-
-    if (cqe->res > 0) {
-        // TODO: limit the amount of bytes to drain
-        // TODO: enqueue another read
-        return 0;
-    }
-
-    *events = (struct mcon_event) {
-        .result = cqe->res,
-        .session = io_entry.session,
-        .type = MCON_EVENT_DRAIN_COMPLETE,
-    };
-
-    return 1;
-}
-
 int _process_write(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mcon_io_uring_entry io_entry, struct mcon_event* events, unsigned int max_events) {
     // We need space to emit one event
     if (max_events < 1)
@@ -111,6 +92,21 @@ int _process_write(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mco
         .result = cqe->res,
         .session = io_entry.session,
         .type = MCON_EVENT_WRITE_COMPLETE,
+    };
+
+    return 1;
+}
+
+int _process_drain(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mcon_io_uring_entry io_entry, struct mcon_event* events, unsigned int max_events) {
+    // We need space to emit one event
+    if (max_events < 1)
+        return 0;
+
+    // Register new event
+    *events = (struct mcon_event) {
+        .result = cqe->res,
+        .session = io_entry.session,
+        .type = MCON_EVENT_DRAIN_COMPLETE,
     };
 
     return 1;
@@ -130,7 +126,7 @@ int _process_close(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mco
     *events = (struct mcon_event) {
         .result = cqe->res,
         .session = io_entry.session,
-        .type = MCON_EVENT_WRITE_COMPLETE,
+        .type = MCON_EVENT_CLOSE_COMPLETE,
     };
 
     // Decrease the active sessions counter

@@ -50,8 +50,8 @@ int io_queue_push(struct io_queue* ioq, io_queue_entry entry) {
 
 int io_queue_pop_into_ring(struct io_queue* ioq, struct io_uring* ring, const unsigned int count) {
     const unsigned int ring_space = io_uring_sq_space_left(ring);
-    const unsigned int queue_space = kqueue_size(&ioq->queue);
-    const unsigned int space = MIN(ring_space, queue_space);
+    const unsigned int sqes_in_waiting = kqueue_size(&ioq->queue);
+    const unsigned int space = MIN(ring_space, sqes_in_waiting);
     const unsigned int limit = MIN(count, space);
 
     int enqueued = 0;
@@ -61,6 +61,11 @@ int io_queue_pop_into_ring(struct io_queue* ioq, struct io_uring* ring, const un
 
         while (enqueued < limit && kqueue_pop(&ioq->queue, priority_group, &sqe) == 0) {
             struct io_uring_sqe* sqe_dst = io_uring_get_sqe(ring);
+
+            // The only documented error-condition for `io_uring_get_sqe()` is that
+            // the SQ is full. Since we adapt to the available space in the SQ, this
+            // function cannot return error. Still, this must be enforced as an
+            // invariant during development. Hence this `assert()` call.
             assert(sqe_dst != NULL);
 
             *sqe_dst = sqe;

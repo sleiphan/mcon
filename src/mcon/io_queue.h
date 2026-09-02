@@ -32,8 +32,7 @@ int io_queue_push(struct io_queue* ioq, io_queue_entry entry);
 /// @param ioq 
 /// @param ring The io_uring instance to submit the SQEs to.
 /// @param count The maximum number of SQEs to submit to the _ring_.
-/// @return On success, returns the number of SQEs submitted. On failure,
-/// returns -1 and an error code in errno.
+/// @return Returns the number of SQEs submitted.
 int io_queue_pop_into_ring(struct io_queue* ioq, struct io_uring* ring, const unsigned int count);
 
 #endif // MCON_IO_QUEUE

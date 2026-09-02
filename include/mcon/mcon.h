@@ -27,7 +27,13 @@ int mcon_start(struct mcon* mcon, int listening_socket_fd, int epoll_fd);
 /// @param mcon The mcon instance to shut down.
 /// @return When successful, returns 0. When an error occurs, returns -1 and errno is set to indicate the error.
 int mcon_shutdown(struct mcon* mcon);
+
 int mcon_process_event(struct mcon *mcon, const struct epoll_event epoll_event, struct mcon_event *events, unsigned int event_capacity);
+
+/// @brief 
+/// @param mcon The mcon instance to submit IO-operations for.
+/// @return When successful, returns 0. When an error occurs, returns -1 and errno is set to indicate the error.
+int mcon_submit(struct mcon* mcon);
 
 // Getters
 

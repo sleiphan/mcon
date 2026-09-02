@@ -2,6 +2,7 @@
 #define MCON_TYPES
 
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef unsigned long long io_uring_data_t;
 
@@ -19,6 +20,7 @@ struct mcon_config {
     */
     mcon_uring_queue_size_t io_uring_queue_size;
 
+    bool edge_triggered_client_events;
 };
 
 #endif // MCON_TYPES

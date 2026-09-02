@@ -181,10 +181,23 @@ int mcon_process_event(struct mcon *mcon, const struct epoll_event epoll_event, 
         case MCON_EPOLL_SOURCE_SESSION: err = mcon_process_session_event(mcon, epoll_event.events, event_data, events, event_capacity); break;
     }
 
-    if (io_uring_sq_ready(&mcon->ring) > 0)
-        io_uring_submit(&mcon->ring);
-
     return err;
+}
+
+int mcon_submit(struct mcon* mcon) {
+    const unsigned int sqe_limit = mcon->configuration.io_uring_queue_size - mcon->state.sqe_in_flight;
+
+    io_queue_pop_into_ring(&mcon->io_queue, &mcon->ring, sqe_limit);
+
+    const int sqes_submitted = io_uring_submit(&mcon->ring);
+
+    if (sqes_submitted < 0) {
+        errno = -sqes_submitted;
+        return -1;
+    } else {
+        mcon->state.sqe_in_flight += sqes_submitted;
+        return sqes_submitted;
+    }
 }
 
 

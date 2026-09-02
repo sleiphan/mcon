@@ -7,14 +7,25 @@ enum mcon_event_type {
     MCON_EVENT_NONE = 0,
     MCON_EVENT_NEW_CONNECTION,
     MCON_EVENT_NEW_CONNECTION_FAILED,
+    
+    // Data has been received from a client, and it is
+    // ready to be read.
     MCON_EVENT_READ_RDY,
     MCON_EVENT_READ_COMPLETE,
     MCON_EVENT_WRITE_COMPLETE,
     MCON_EVENT_DRAIN_COMPLETE,
-    MCON_EVENT_DRAIN_FAILURE,
-    MCON_EVENT_CONNECTION_CLOSED,
+    MCON_EVENT_CLOSE_COMPLETE,
+
+    // The client associated with a session is done
+    // sending data on this connection.
     MCON_EVENT_READ_SHUTDOWN,
+
+    // The client closed the connection.
     MCON_EVENT_REMOTE_HANGUP,
+
+    // A socket error happened on the socket connection
+    // to the client.
+    MCON_EVENT_CLIENT_ERROR,
 };
 
 struct mcon_event {
