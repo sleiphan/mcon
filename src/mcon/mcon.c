@@ -4,6 +4,7 @@
 
 #include "mcon/constants.h"
 #include "mcon/mcon.h"
+#include "mcon/socket.h"
 #include "mcon_type.h"
 #include "event_processing.h"
 
@@ -64,6 +65,7 @@ int mcon_create(struct mcon** dst, struct mcon_config config) {
         .io_queue = io_queue,
         .state = (struct mcon_state) {
             .sqe_in_flight = 0,
+            .is_shutting_down = false,
         },
     };
 
@@ -106,6 +108,11 @@ void mcon_destroy(struct mcon* mcon) {
 
 
 int mcon_start(struct mcon* mcon, int listening_socket_fd, int epoll_fd) {
+    if (mcon_listening_socket_valid(listening_socket_fd)) {
+        errno = EINVAL;
+        return -1;
+    }
+
     // Add the server socket to the interest list
     int err = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listening_socket_fd, &(struct epoll_event) {
         .data = mcon_encode_epoll_entry((struct mcon_epoll_entry) {

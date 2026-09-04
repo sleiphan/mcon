@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
 
 #include "mcon/socket.h"
 
@@ -116,4 +118,42 @@ int mcon_create_listening_socket(const uint16_t port, const char* bind_address) 
     freeaddrinfo(address_info_result);
 
     return socket_fd;
+}
+
+enum mcon_socket_validation_error mcon_listening_socket_valid(const int listening_socket) {
+    int listening = 0;
+    socklen_t listening_len = sizeof(listening);
+    if (getsockopt(listening_socket, SOL_SOCKET, SO_ACCEPTCONN, &listening, &listening_len) != 0) {
+        switch (errno) {
+            case EBADF:
+                errno = 0;
+                return MCON_SOCKET_NOT_A_FILE_DESCRIPTOR;
+            case ENOTSOCK:
+                errno = 0;
+                return MCON_SOCKET_NOT_A_SOCKET;
+            default:
+                return MCON_SOCKET_VALIDATION_ERROR;
+        }
+    }
+
+    int type = 0;
+    socklen_t type_len = sizeof(type);
+    if (getsockopt(listening_socket, SOL_SOCKET, SO_TYPE, &type, &type_len))
+        return MCON_SOCKET_VALIDATION_ERROR;
+
+    int flags = fcntl(listening_socket, F_GETFL, 0);
+    if (flags == -1)
+        return MCON_SOCKET_VALIDATION_ERROR;
+    int is_nonblocking = (flags & O_NONBLOCK) != 0;
+
+    if (type != SOCK_STREAM)
+        return MCON_SOCKET_NOT_STREAMING;
+
+    if (!listening)
+        return MCON_SOCKET_NOT_LISTENING;
+
+    if (!is_nonblocking)
+        return MCON_SOCKET_NOT_NONBLOCKING;
+
+    return MCON_SOCKET_OK;
 }
