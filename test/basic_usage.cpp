@@ -28,7 +28,7 @@ int connect_to_server(const char* server_address, uint16_t port) {
     return client_fd;
 }
 
-TEST(mcon, placeholder) {
+TEST(mcon, base_case) {
     struct mcon* mcon;
     if (mcon_create(&mcon, mcon_config_default))
         FAIL();
