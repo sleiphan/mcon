@@ -14,7 +14,7 @@ static int _prep_server_socket(
     const socklen_t addrlen,
     const bool try_dual_stack
 ) {
-    int socket_fd = socket(family, SOCK_STREAM, 0);
+    int socket_fd = socket(family, SOCK_STREAM | SOCK_NONBLOCK, 0);
     if (socket_fd < 0) {
         perror("socket");
         return -1;

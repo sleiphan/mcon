@@ -16,6 +16,9 @@
 struct mcon_state {
     uint16_t sqe_in_flight;
     bool is_shutting_down;
+
+    uint16_t accepts_live;
+    bool accepts_requested;
 };
 
 struct mcon {
@@ -27,7 +30,6 @@ struct mcon {
     struct mcon_config configuration;
 
     struct mcon_session* sessions;
-    mcon_session_idx active_session_count;
     struct idx_stack session_free_stack;
 
     struct io_uring ring;

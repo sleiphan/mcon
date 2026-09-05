@@ -7,6 +7,7 @@
 #include "mcon/socket.h"
 #include "mcon_type.h"
 #include "event_processing.h"
+#include "io_uring_actions.h"
 
 
 
@@ -46,8 +47,9 @@ int mcon_create(struct mcon** dst, struct mcon_config config) {
             .generation = 0,
         };
 
-    for (mcon_session_idx i = 1; i <= config.session_count; i++)
-        idx_stack_push(&session_free_stack, config.session_count - i);
+    
+    for (mcon_session_idx i = 0; i < config.session_count; i++)
+        idx_stack_push(&session_free_stack, (config.session_count - 1) - i);
 
     // Populate mcon instance
     *mcon = (struct mcon) {
@@ -59,13 +61,14 @@ int mcon_create(struct mcon** dst, struct mcon_config config) {
 
         .configuration = config,
         .sessions = sessions,
-        .active_session_count = 0,
         .session_free_stack = session_free_stack,
 
         .io_queue = io_queue,
         .state = (struct mcon_state) {
             .sqe_in_flight = 0,
             .is_shutting_down = false,
+            .accepts_live = 0,
+            .accepts_requested = false,
         },
     };
 
@@ -192,11 +195,22 @@ int mcon_process_event(struct mcon *mcon, const struct epoll_event epoll_event, 
 }
 
 int mcon_submit(struct mcon* mcon) {
+    // Enqueue accept() SQEs if needed
+    if (mcon->state.accepts_requested)
+        while (mcon->state.accepts_live < mcon->configuration.max_live_accept_sqes) {
+            if (enqueue_accept(mcon))
+                break;
+            
+            mcon->state.accepts_live++;
+            mcon->state.accepts_requested = false;
+        }
+
+    // Pop and submit SQEs from the IO queue.
     const unsigned int sqe_limit = mcon->configuration.io_uring_queue_size - mcon->state.sqe_in_flight;
-
-    io_queue_pop_into_ring(&mcon->io_queue, &mcon->ring, sqe_limit);
-
-    const int sqes_submitted = io_uring_submit(&mcon->ring);
+    const int sqes_popped = io_queue_pop_into_ring(&mcon->io_queue, &mcon->ring, sqe_limit);
+    int sqes_submitted = 0;
+    if (sqes_popped)
+        sqes_submitted = io_uring_submit(&mcon->ring);
 
     if (sqes_submitted < 0) {
         errno = -sqes_submitted;
@@ -229,5 +243,5 @@ bool mcon_owns_event(const struct mcon* mcon, struct epoll_event event) {
 }
 
 mcon_session_idx mcon_active_session_count(const struct mcon* mcon) {
-    return mcon->active_session_count;
+    return mcon->configuration.session_count - idx_stack_size(&mcon->session_free_stack);
 }

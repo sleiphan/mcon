@@ -1,6 +1,7 @@
 
 #include <liburing.h>
 #include <sys/epoll.h>
+#include <unistd.h>
 
 #include "epoll_entry.h"
 #include "io_uring_entry.h"
@@ -11,29 +12,35 @@
 #include "constants.h"
 
 int _process_accept(struct mcon* mcon, struct io_uring_cqe* cqe, struct mcon_event* events, unsigned int max_events) {
+    // If the SQE did not find any pending connection, simply skip and move on.
+    if (cqe->res == -EAGAIN) {
+        io_uring_cqe_seen(&mcon->ring, cqe); // Consume the CQE
+        mcon->state.accepts_live--;
+        return 0;
+    }
+
     // We need space to emit one event
     if (max_events < 1)
         return 0;
 
-    // If the operation failed, notify the consumer.
-    if (cqe->res < 0) {
-        *events = (struct mcon_event) {
-            .result = cqe->res,
-            .session = MCON_NO_SESSION,
-            .type = MCON_EVENT_NEW_CONNECTION,
-        };
+    // Whatever happens from this point on, the CQE must be consumed.
+    io_uring_cqe_seen(&mcon->ring, cqe);
+    mcon->state.accepts_live--;
 
-        return 1;
-    }
+    // Whether the operation succeeds or errors from here, we have a signal
+    // that the current accept() cycle should continue.
+    mcon->state.accepts_requested = true;
+
+    // If the operation failed, notify the consumer.
+    if (cqe->res < 0)
+        goto emit_event;
+
+    // The new connection
+    const int socket_fd = cqe->res;
 
     // Pop a free session
     mcon_session_idx new_session;
     if (idx_stack_pop(&mcon->session_free_stack, &new_session)) return -1;
-
-    const int socket_fd = cqe->res;
-
-    // Prepare the session
-    session_prep_for_new_client(mcon, new_session, socket_fd);
 
     // Add socket to interest list
     int epoll_err = epoll_ctl(mcon->epoll_fd, EPOLL_CTL_ADD, socket_fd, &(struct epoll_event) {
@@ -47,17 +54,23 @@ int _process_accept(struct mcon* mcon, struct io_uring_cqe* cqe, struct mcon_eve
         .events = MCON_CLIENT_SOCKET_SUBSCRIBED_EVENTS | (mcon->configuration.edge_triggered_client_events ? EPOLLET : 0),
     });
 
-    // Cleanup if the call to epoll failed
+    // Return the session and disconnect the client if
+    // we failed to add the socket to the interest list.
     if (epoll_err) {
-        mcon->sessions[new_session].socket_fd = -1;
         idx_stack_push(&mcon->session_free_stack, new_session);
+        close(socket_fd);
         return -1;
+
+        // Note that at this point, the CQE has been consumed, but the accept() cycle is still live. So even if the call to
+        // epoll failed, the server can still try to accept new connections. This is a useful reaction if e.g. the system is
+        // running out of memory.
     }
 
-    // Increase the active sessions counter
-    mcon->active_session_count++;
+    // Prepare the session
+    session_prep_for_new_client(mcon, new_session, socket_fd);
 
     // Register new event
+    emit_event:
     *events = (struct mcon_event) {
         .result = cqe->res,
         .session = new_session,
@@ -79,6 +92,9 @@ int _process_read(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mcon
         .type = MCON_EVENT_READ_COMPLETE,
     };
 
+    // Consume the CQE
+    io_uring_cqe_seen(&mcon->ring, cqe);
+
     return 1;
 }
 
@@ -93,6 +109,9 @@ int _process_write(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mco
         .session = io_entry.session,
         .type = MCON_EVENT_WRITE_COMPLETE,
     };
+
+    // Consume the CQE
+    io_uring_cqe_seen(&mcon->ring, cqe);
 
     return 1;
 }
@@ -109,18 +128,18 @@ int _process_drain(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mco
         .type = MCON_EVENT_DRAIN_COMPLETE,
     };
 
+    // Consume the CQE
+    io_uring_cqe_seen(&mcon->ring, cqe);
+
     return 1;
 }
 
 int _process_close(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mcon_io_uring_entry io_entry, struct mcon_event* events, unsigned int max_events) {
-    if ((mcon->configuration.session_count - idx_stack_size(&mcon->session_free_stack)) < 1) {
+    // We need space to emit one event
+    if (max_events < 1) {
         errno = ENOBUFS;
         return -1;
     }
-
-    // We need space to emit one event
-    if (max_events < 1)
-        return 0;
 
     // Register new event
     *events = (struct mcon_event) {
@@ -129,15 +148,19 @@ int _process_close(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mco
         .type = MCON_EVENT_CLOSE_COMPLETE,
     };
 
-    // Decrease the active sessions counter
-    mcon->active_session_count--;
-
-    // Make the session ready for a new connection
-    session_reset_after_close(mcon, io_entry.session);
+    // All failure cases for close() is something that must be dealt with by the caller
+    if (cqe->res != 0)
+        return 1;
 
     // Return the session to the free stack
     if (idx_stack_push(&mcon->session_free_stack, io_entry.session))
         return -1;
+
+    // Make the session ready for a new connection
+    session_reset_after_close(mcon, io_entry.session);
+
+    // Consume the CQE
+    io_uring_cqe_seen(&mcon->ring, cqe);
 
     return 1;
 }
@@ -145,6 +168,9 @@ int _process_close(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mco
 int mcon_process_io_uring_event(struct mcon* mcon, struct mcon_event* events, unsigned int max_events) {
     unsigned int event_count = 0;
     int err = -1;
+
+    uint64_t output;
+    int bytes_read = read(mcon->io_uring_eventfd, &output, sizeof(output));
 
     for (struct io_uring_cqe* cqe; (event_count < max_events) & (io_uring_peek_cqe(&mcon->ring, &cqe) == 0);) {
         const struct mcon_io_uring_entry cqe_data = ((union mcon_io_uring_data) io_uring_cqe_get_data64(cqe)).entry;
@@ -162,12 +188,13 @@ int mcon_process_io_uring_event(struct mcon* mcon, struct mcon_event* events, un
         We should still return the amount of events produced by this call.
         And if the return value _is_ zero, there is not enough space in _events_ to process this CQE.
         */
-        if (err < 1)
+        if (err < 0)
             break;
 
-        // Consume the CQE, since we now have successfully processed it
-        io_uring_cqe_seen(&mcon->ring, cqe);
-        mcon->state.sqe_in_flight--;
+        // Decrease sqe counter if the cqe was consumed.
+        struct io_uring_cqe* next_cqe;
+        io_uring_peek_cqe(&mcon->ring, &next_cqe);
+        mcon->state.sqe_in_flight -= cqe != next_cqe;
 
         // Increase the event counter
         event_count += err;
