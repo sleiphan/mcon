@@ -6,3 +6,5 @@ set_target_properties(${EXECUTABLE}
     LINKER_LANGUAGE CXX
     RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/../bin
 )
+
+add_subdirectory(million_connections)
