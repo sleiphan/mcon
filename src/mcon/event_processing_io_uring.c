@@ -168,11 +168,9 @@ int _process_close(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mco
 int mcon_process_io_uring_event(struct mcon* mcon, struct mcon_event* events, unsigned int max_events) {
     unsigned int event_count = 0;
     int err = -1;
+    unsigned int iteration_count = 0;
 
-    uint64_t output;
-    int bytes_read = read(mcon->io_uring_eventfd, &output, sizeof(output));
-
-    for (struct io_uring_cqe* cqe; (event_count < max_events) & (io_uring_peek_cqe(&mcon->ring, &cqe) == 0);) {
+    for (struct io_uring_cqe* cqe; (event_count < max_events) & (io_uring_peek_cqe(&mcon->ring, &cqe) == 0); iteration_count++) {
         const struct mcon_io_uring_entry cqe_data = ((union mcon_io_uring_data) io_uring_cqe_get_data64(cqe)).entry;
 
         switch (cqe_data.operation) {
@@ -198,6 +196,19 @@ int mcon_process_io_uring_event(struct mcon* mcon, struct mcon_event* events, un
 
         // Increase the event counter
         event_count += err;
+    }
+
+    // Only clear the eventfd of the io_uring instance once we receive the io_uring-event
+    // without processing _any_ CQEs.
+    if (iteration_count == 0) {
+        uint64_t output;
+        int bytes_read = read(mcon->io_uring_eventfd, &output, sizeof(output));
+
+        // Trigger the eventfd if a CQE showed up while clearing the eventfd.
+        if (io_uring_cq_ready(&mcon->ring) != 0) {
+            uint64_t one = 1;
+            write(mcon->io_uring_eventfd, &one, sizeof(one));
+        }
     }
 
     return event_count;
