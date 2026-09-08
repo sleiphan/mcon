@@ -1,5 +1,4 @@
-target_sources(${PROJECT_NAME} PUBLIC 
-    bitset.c
+target_sources(${PROJECT_NAME} PUBLIC
     config.c
     event_processing.c
     event_processing_io_uring.c

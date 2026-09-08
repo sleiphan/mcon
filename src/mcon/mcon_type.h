@@ -4,9 +4,6 @@
 
 #include <liburing.h>
 
-#define BITSET_NO_IMPLEMENTATION
-#include <ctools/bitset.h>
-
 #include "mcon/types.h"
 #include "index_stack.h"
 #include "epoll_entry.h"
