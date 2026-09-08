@@ -17,7 +17,7 @@ int enqueue_accept(struct mcon* mcon) {
     // Create the accept() SQE
     struct io_uring_sqe accept_sqe;
     io_uring_initialize_sqe(&accept_sqe);
-    io_uring_prep_accept(&accept_sqe, mcon->server_socket_fd, NULL, NULL, 0);
+    io_uring_prep_accept(&accept_sqe, mcon->server_socket_fd, NULL, NULL, IORING_ACCEPT_DONTWAIT);
     io_uring_sqe_set_data64(&accept_sqe, ((union mcon_io_uring_data) io_entry).data);
 
     return io_queue_push(&mcon->io_queue, accept_sqe);
