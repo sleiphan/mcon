@@ -13,6 +13,12 @@
 
 
 int mcon_create(struct mcon** dst, struct mcon_config config) {
+    // Validate configuration
+    if (!mcon_config_validate(config)) {
+        errno = EINVAL;
+        return -1;
+    }
+
     // Setup io_uring instance
     struct io_uring ring;
     int io_uring_init_error = io_uring_queue_init(config.io_uring_queue_size, &ring, 0);

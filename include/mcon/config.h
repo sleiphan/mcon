@@ -5,4 +5,10 @@
 
 extern const struct mcon_config mcon_config_default;
 
+/// @brief Check whether a give configuration will pass as
+/// a valid configuration if passed to mcon_create().
+/// @param config The configuration to validate.
+/// @return If the configuration is valid, returns true. Otherwise, returns false.
+bool mcon_config_validate(const struct mcon_config config);
+
 #endif // MCON_CONFIG
