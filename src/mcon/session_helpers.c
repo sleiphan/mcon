@@ -1,6 +1,13 @@
 #include "mcon_type.h"
 #include "session_helpers.h"
 
+void session_init(struct mcon_session* session) {
+    *session = (struct mcon_session) {
+        .socket_fd = -1,
+        .generation = 0,
+    };
+}
+
 void session_reset_after_close(const struct mcon* mcon, const mcon_session_idx session) {
     mcon->sessions[session].socket_fd = -1;
 

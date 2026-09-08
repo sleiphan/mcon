@@ -8,6 +8,7 @@
 #include "mcon_type.h"
 #include "event_processing.h"
 #include "io_uring_actions.h"
+#include "session_helpers.h"
 
 
 
@@ -42,10 +43,7 @@ int mcon_create(struct mcon** dst, struct mcon_config config) {
     if (!mcon) goto allocate_mcon_instance;
 
     for (mcon_session_idx i = 0; i < config.session_count; i++)
-        sessions[i] = (struct mcon_session) {
-            .socket_fd = -1,
-            .generation = 0,
-        };
+        session_init(sessions + 1);
 
     
     for (mcon_session_idx i = 0; i < config.session_count; i++)
