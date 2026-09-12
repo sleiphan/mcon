@@ -31,6 +31,9 @@ int _process_accept(struct mcon* mcon, struct io_uring_cqe* cqe, struct mcon_eve
     // that the current accept() cycle should continue.
     mcon->state.accepts_requested = true;
 
+    // Set new_session to MCON_NO_SESSION in case of errors.
+    mcon_session_idx new_session = MCON_NO_SESSION;
+
     // If the operation failed, notify the consumer.
     if (cqe->res < 0)
         goto emit_event;
@@ -39,7 +42,6 @@ int _process_accept(struct mcon* mcon, struct io_uring_cqe* cqe, struct mcon_eve
     const int socket_fd = cqe->res;
 
     // Pop a free session
-    mcon_session_idx new_session;
     if (idx_stack_pop(&mcon->session_free_stack, &new_session)) return -1;
 
     // Add socket to interest list
