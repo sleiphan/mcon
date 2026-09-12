@@ -150,10 +150,6 @@ int _process_close(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mco
         .type = MCON_EVENT_CLOSE_COMPLETE,
     };
 
-    // All failure cases for close() is something that must be dealt with by the caller
-    if (cqe->res != 0)
-        return 1;
-
     // Return the session to the free stack
     if (idx_stack_push(&mcon->session_free_stack, io_entry.session))
         return -1;
