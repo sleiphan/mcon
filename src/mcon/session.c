@@ -87,8 +87,25 @@ int mcon_session_close(struct mcon* mcon, mcon_session_idx session) {
     return 0;
 }
 
-int mcon_session_detach(struct mcon* mcon, mcon_session_idx session) {
-    return -1;
+int mcon_session_detach(struct mcon* mcon, const mcon_session_idx session) {
+    static const uint8_t incompatible_states =
+            MCON_SESSION_STATE_READING |
+            MCON_SESSION_STATE_WRITING |
+            MCON_SESSION_STATE_CLOSING;
+
+    if (mcon->sessions[session].state & incompatible_states) {
+        errno = EBUSY;
+        return -1;
+    }
+
+    // Return the session to the free stack
+    if (idx_stack_push(&mcon->session_free_stack, session))
+        return -1;
+
+    // Make the session ready for a new connection
+    session_reset_after_close(mcon, session);
+
+    return 0;
 }
 
 int mcon_session_get_socket(struct mcon* mcon, mcon_session_idx session) {
