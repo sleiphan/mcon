@@ -16,6 +16,11 @@ static inline void _set_sqe_data(struct io_uring_sqe* sqe, mcon_session_idx sess
 
 
 int mcon_session_read(struct mcon* mcon, mcon_session_idx session, void* buf, unsigned int count) {
+    if (mcon->sessions[session].state & MCON_SESSION_STATE_READING) {
+        errno = EBUSY;
+        return -1;
+    }
+
     struct io_uring_sqe read_sqe;
     io_uring_initialize_sqe(&read_sqe);
     io_uring_prep_read(&read_sqe, mcon->sessions[session].socket_fd, buf, count, 0);
@@ -25,6 +30,11 @@ int mcon_session_read(struct mcon* mcon, mcon_session_idx session, void* buf, un
 }
 
 int mcon_session_write(struct mcon* mcon, mcon_session_idx session, const void* buf, unsigned int count) {
+    if (mcon->sessions[session].state & MCON_SESSION_STATE_WRITING) {
+        errno = EBUSY;
+        return -1;
+    }
+
     struct io_uring_sqe write_sqe;
     io_uring_initialize_sqe(&write_sqe);
     io_uring_prep_write(&write_sqe, mcon->sessions[session].socket_fd, buf, count, 0);
@@ -34,6 +44,11 @@ int mcon_session_write(struct mcon* mcon, mcon_session_idx session, const void* 
 }
 
 int mcon_session_drain(struct mcon* mcon, mcon_session_idx session, unsigned int count) {
+    if (mcon->sessions[session].state & MCON_SESSION_STATE_READING) {
+        errno = EBUSY;
+        return -1;
+    }
+
     struct io_uring_sqe recv_sqe;
     io_uring_initialize_sqe(&recv_sqe);
     io_uring_prep_recv(&recv_sqe, mcon->sessions[session].socket_fd, &mcon->sessions[session], count, MSG_TRUNC);
@@ -43,6 +58,11 @@ int mcon_session_drain(struct mcon* mcon, mcon_session_idx session, unsigned int
 }
 
 int mcon_session_close(struct mcon* mcon, mcon_session_idx session) {
+    if (mcon->sessions[session].state & MCON_SESSION_STATE_CLOSING) {
+        errno = EBUSY;
+        return -1;
+    }
+
     struct io_uring_sqe close_sqe;
     io_uring_initialize_sqe(&close_sqe);
     io_uring_prep_close(&close_sqe, mcon->sessions[session].socket_fd);

@@ -97,6 +97,9 @@ int _process_read(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mcon
     // Consume the CQE
     io_uring_cqe_seen(&mcon->ring, cqe);
 
+    // Clear the "reading" state from the session
+    mcon->sessions[io_entry.session].state &= ~MCON_SESSION_STATE_READING;
+
     return 1;
 }
 
@@ -115,6 +118,9 @@ int _process_write(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mco
     // Consume the CQE
     io_uring_cqe_seen(&mcon->ring, cqe);
 
+    // Clear the "writing" state from the session
+    mcon->sessions[io_entry.session].state &= ~MCON_SESSION_STATE_WRITING;
+
     return 1;
 }
 
@@ -132,6 +138,9 @@ int _process_drain(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mco
 
     // Consume the CQE
     io_uring_cqe_seen(&mcon->ring, cqe);
+
+    // Clear the "reading" state from the session
+    mcon->sessions[io_entry.session].state &= ~MCON_SESSION_STATE_READING;
 
     return 1;
 }
@@ -159,6 +168,9 @@ int _process_close(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mco
 
     // Consume the CQE
     io_uring_cqe_seen(&mcon->ring, cqe);
+
+    // Clear the "closing" state from the session
+    mcon->sessions[io_entry.session].state &= ~MCON_SESSION_STATE_CLOSING;
 
     return 1;
 }

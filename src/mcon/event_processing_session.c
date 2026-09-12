@@ -46,11 +46,13 @@ int mcon_process_session_event(struct mcon* mcon, const uint32_t epoll_events, c
     }
 
     if (epoll_events & EPOLLRDHUP) {
-        events[events_produced++] = (struct mcon_event) {
-            .result = 0,
-            .session = epoll_data.session,
-            .type = MCON_EVENT_REMOTE_HANGUP,
-        };
+        if (!(mcon->sessions[epoll_data.session].state & MCON_SESSION_STATE_RDHUP))
+            events[events_produced++] = (struct mcon_event) {
+                .result = 0,
+                .session = epoll_data.session,
+                .type = MCON_EVENT_REMOTE_HANGUP,
+            };
+        mcon->sessions[epoll_data.session].state |= MCON_SESSION_STATE_RDHUP;
     }
 
     int return_code = 0;
