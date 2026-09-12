@@ -4,6 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <liburing.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <time.h>
 
 
 
@@ -87,7 +92,7 @@ int parse_source_range(const char *arg, struct ipv4_range *range_out) {
     else
         host_mask = UINT32_MAX >> prefix;
 
-    range_out->first = (struct in_addr) {.s_addr = htonl(address_host & ~host_mask)};
+    range_out->first = (struct in_addr) {.s_addr = htonl(address_host)};
     range_out->final = (struct in_addr) {.s_addr = htonl(address_host | host_mask)};
 
     return 0;
@@ -128,17 +133,267 @@ static struct argp argp = {
 
 
 
-// struct command {
-//     const char *name;
-//     int (*handler)(int argc, char **argv);
-// };
 
-// static const struct command commands[] = {
-//     { "add",   cmd_add },
-//     { "close", cmd_close },
-//     { "list",  cmd_list },
-//     { "quit",  cmd_quit },
-// };
+
+struct connection {
+    int client_fd;
+};
+
+struct client_state {
+    struct connection* connections;
+    unsigned int connection_count;
+};
+
+int connect_to_server(const struct in_addr address, const uint16_t port, const struct in_addr* source_address) {
+    struct sockaddr_in server_address_sock;
+    memset(&server_address_sock, 0, sizeof(server_address_sock));
+    server_address_sock.sin_family = AF_INET;
+    server_address_sock.sin_addr = address;
+    server_address_sock.sin_port = htons(port);
+
+    int client_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (client_fd == -1)
+        return -1;
+
+    if (source_address) {
+        struct sockaddr_in source_address_sock = {0};
+        source_address_sock.sin_family = AF_INET;
+        source_address_sock.sin_addr = *source_address;
+
+        if (bind(client_fd, (const struct sockaddr*)&source_address_sock, sizeof(source_address_sock))) {
+            close(client_fd);
+            return -1;
+        }
+    }
+
+    const int connect_rc = connect(client_fd, (struct sockaddr*)&server_address_sock, sizeof(server_address_sock));
+    if (connect_rc != 0)
+        return -1;
+
+    return client_fd;
+}
+
+int ping_server(struct cli_config args) {
+    int client_fd = connect_to_server(args.host, args.port, NULL);
+    if (client_fd < 0)
+        return -1;
+
+    shutdown(client_fd, SHUT_WR);
+    close(client_fd);
+
+    return 0;
+}
+
+int cli_ping_server(int argc, char **argv, struct cli_config args, struct client_state* state) {
+    if (argc > 1) {
+        printf("Too many arguments\n");
+        return 0;
+    }
+
+    const int rc = ping_server(args);
+    if (rc == 0) {
+        printf("Ping successful; server responded\n");
+    } else {
+        perror("ping_server");
+    }
+
+    return 0;
+}
+
+int cli_exit(int argc, char **argv, struct cli_config args, struct client_state* state) {
+    if (argc > 1) {
+        printf("Too many arguments\n");
+        return 0;
+    }
+
+    return 1;
+}
+
+int get_source_address(const unsigned int connection_idx, const struct ipv4_range source_range, struct in_addr* out) {
+    static const unsigned int CONNECTIONS_PER_SOURCE_ADDRESS = 25000;
+
+    const uint32_t min_address = ntohl(source_range.first.s_addr);
+    const uint32_t max_address = ntohl(source_range.final.s_addr);
+    const uint32_t num_addresses = max_address - min_address;
+
+    // Fail if we don't have enough source addresses
+    if (connection_idx >= (num_addresses * CONNECTIONS_PER_SOURCE_ADDRESS)) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    const unsigned int address_idx = connection_idx / CONNECTIONS_PER_SOURCE_ADDRESS;
+    const uint32_t target_address = min_address + address_idx;
+
+    out->s_addr = htonl(target_address);
+    return 0;
+}
+
+bool iteration_timing(const time_t interval_ms, struct timespec* last_exectution) {
+    struct timespec current_time;
+    clock_gettime(CLOCK_MONOTONIC, &current_time);
+
+    const time_t time_passed_ms =
+        (current_time.tv_sec -  (*last_exectution).tv_sec)  * 1000 +
+        (current_time.tv_nsec - (*last_exectution).tv_nsec) / 1000000;
+    
+    bool execute = time_passed_ms >= interval_ms;
+    *last_exectution = execute ? current_time : *last_exectution;
+
+    return execute;
+}
+
+int cli_connect(int argc, char **argv, struct cli_config args, struct client_state* state) {
+    if (argc > 2) {
+        printf("Too many arguments\n");
+        return 0;
+    }
+
+    if (argc < 2) {
+        printf("Too few arguments\n");
+        return 0;
+    }
+
+    char* end;
+    const long target_connections = strtol(argv[1], &end, 10);
+
+    if (target_connections < 0) {
+        printf("Invalid argument\n");
+        return 0;
+    }
+
+    if (target_connections > 1000000) {
+        printf("Too many connections\n");
+        return 0;
+    }
+
+    if (target_connections == state->connection_count) {
+        printf("%d connections already active\n", target_connections);
+        return 0;
+    }
+
+    if (state->connection_count < target_connections) {
+        struct in_addr source_address;
+        if (get_source_address(target_connections - 1, args.source_range, &source_address)) {
+            printf("Not enough source addresses\n");
+            return 0;
+        }
+
+        struct connection* new_mem = realloc(state->connections, target_connections * sizeof(struct connection));
+        if (new_mem == NULL) {
+            perror("realloc");
+            return 0;
+        }
+        state->connections = new_mem;
+
+        struct timespec last_excecution;
+        clock_gettime(CLOCK_MONOTONIC, &last_excecution);
+        printf("%d / %d", state->connection_count, target_connections);
+
+        int connections_established = 0;
+        for (int i = state->connection_count; i < target_connections; i++) {
+            get_source_address(i, args.source_range, &source_address);
+
+            int client_fd = connect_to_server(args.host, args.port, &source_address);
+            if (client_fd < 0) {
+                perror("connect_to_server");
+                break;
+            }
+
+            connections_established++;
+            state->connections[i].client_fd = client_fd;
+
+            if (iteration_timing(50, &last_excecution)) {
+                printf("\r\033[K %d / %d", state->connection_count + connections_established, target_connections);
+                fflush(stdout);
+            }
+        }
+
+        printf("\nSuccessfully connected %d new clients\n", connections_established);
+        state->connection_count += connections_established;
+        printf("Current total: %d\n", state->connection_count);
+
+    } else {
+        for (int i = state->connection_count - 1; i >= target_connections; i--) {
+            shutdown(state->connections[i].client_fd, SHUT_WR);
+            close(state->connections[i].client_fd);
+        }
+
+        struct connection* new_mem = realloc(state->connections, target_connections * sizeof(struct connection));
+        if (new_mem == NULL && target_connections != 0) {
+            perror("realloc");
+            return 0;
+        }
+
+        state->connections = new_mem;
+        state->connection_count = target_connections;
+        printf("Current total: %d\n", state->connection_count);
+    }
+
+    return 0;
+}
+
+struct command {
+    const char *name;
+    int (*handler)(int argc, char **argv, struct cli_config cli_args, struct client_state* state);
+};
+
+static const struct command commands[] = {
+    { "ping",    cli_ping_server},
+    { "status",  NULL},
+    { "connect", cli_connect},
+    { "write",   NULL},
+    { "request", NULL},
+    { "exit",    cli_exit},
+};
+
+int command_line_loop(struct cli_config args) {
+    char* command_str = NULL;
+    size_t command_length = 0;
+    const unsigned int command_count = sizeof(commands) / sizeof(struct command);
+    char* argv[20];
+    unsigned int argc = 0;
+
+    struct client_state state = {
+        .connection_count = 0,
+        .connections = malloc(1),
+    };
+
+    bool running = true;
+    while (running) {
+        if (getline(&command_str, &command_length, stdin) < 0) {
+            perror("getline");
+            return -1;
+        }
+
+        char* savetoken;
+        char* token = strtok_r(command_str, " \t\n", &savetoken);
+        argc = 0;
+        while (token != NULL && argc < (sizeof(argv)/sizeof(char*))) {
+            argv[argc++] = token;
+            token = strtok_r(NULL, " \t\n", &savetoken);
+        }
+
+        bool unknown_command = false;
+        for (int i = 0; i < command_count; i++) {
+            if (strncmp(argv[0], commands[i].name, strlen(commands[i].name)) == 0) {
+                const int command_rc = commands[i].handler(argc, argv, args, &state);
+                if (command_rc == 1)
+                    running = false;
+                break;
+            }
+
+            unknown_command = i == command_count - 1;
+        }
+
+        if (unknown_command)
+            printf("Unknown command: %s\n", argv[0]);
+    }
+}
+
+
+
+
 
 void print_run_config(struct cli_config args) {
     char host_str[INET_ADDRSTRLEN];
@@ -167,4 +422,13 @@ int main(int argc, char **argv) {
     print_run_config(args);
 
     //
+    const int rc = ping_server(args);
+    if (rc == 0)
+        printf("Ping successful; server responded\n");
+    else {
+        perror("ping_server");
+        return -1;
+    }
+
+    return command_line_loop(args);
 }

@@ -6,3 +6,12 @@ set_target_properties(${EXECUTABLE}
     LINKER_LANGUAGE C
     RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/../bin
 )
+
+set(EXECUTABLE "mcon_test_server")
+add_executable(${EXECUTABLE} mcon_test_server.c)
+target_link_libraries(${EXECUTABLE} ${PROJECT_NAME})
+set_target_properties(${EXECUTABLE}
+    PROPERTIES 
+    LINKER_LANGUAGE C
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/../bin
+)
