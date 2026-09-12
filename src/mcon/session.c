@@ -26,7 +26,11 @@ int mcon_session_read(struct mcon* mcon, mcon_session_idx session, void* buf, un
     io_uring_prep_read(&read_sqe, mcon->sessions[session].socket_fd, buf, count, 0);
     _set_sqe_data(&read_sqe, session, MCON_IO_SESSION_READ);
 
-    return io_queue_push(&mcon->io_queue, read_sqe);
+    if (io_queue_push(&mcon->io_queue, read_sqe))
+        return -1;
+
+    mcon->sessions[session].state |= MCON_SESSION_STATE_READING;
+    return 0;
 }
 
 int mcon_session_write(struct mcon* mcon, mcon_session_idx session, const void* buf, unsigned int count) {
@@ -40,7 +44,11 @@ int mcon_session_write(struct mcon* mcon, mcon_session_idx session, const void* 
     io_uring_prep_write(&write_sqe, mcon->sessions[session].socket_fd, buf, count, 0);
     _set_sqe_data(&write_sqe, session, MCON_IO_SESSION_WRITE);
 
-    return io_queue_push(&mcon->io_queue, write_sqe);
+    if (io_queue_push(&mcon->io_queue, write_sqe))
+        return -1;
+
+    mcon->sessions[session].state |= MCON_SESSION_STATE_WRITING;
+    return 0;
 }
 
 int mcon_session_drain(struct mcon* mcon, mcon_session_idx session, unsigned int count) {
@@ -54,7 +62,11 @@ int mcon_session_drain(struct mcon* mcon, mcon_session_idx session, unsigned int
     io_uring_prep_recv(&recv_sqe, mcon->sessions[session].socket_fd, &mcon->sessions[session], count, MSG_TRUNC);
     _set_sqe_data(&recv_sqe, session, MCON_IO_SESSION_DRAIN);
 
-    return io_queue_push(&mcon->io_queue, recv_sqe);
+    if (io_queue_push(&mcon->io_queue, recv_sqe))
+        return -1;
+
+    mcon->sessions[session].state |= MCON_SESSION_STATE_READING;
+    return 0;
 }
 
 int mcon_session_close(struct mcon* mcon, mcon_session_idx session) {
@@ -68,7 +80,11 @@ int mcon_session_close(struct mcon* mcon, mcon_session_idx session) {
     io_uring_prep_close(&close_sqe, mcon->sessions[session].socket_fd);
     _set_sqe_data(&close_sqe, session, MCON_IO_SESSION_CLOSE);
 
-    return io_queue_push(&mcon->io_queue, close_sqe);
+    if (io_queue_push(&mcon->io_queue, close_sqe))
+        return -1;
+
+    mcon->sessions[session].state |= MCON_SESSION_STATE_CLOSING;
+    return 0;
 }
 
 int mcon_session_detach(struct mcon* mcon, mcon_session_idx session) {
