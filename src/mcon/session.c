@@ -123,11 +123,3 @@ int mcon_session_detach(struct mcon* mcon, const mcon_session_idx session) {
 int mcon_session_get_socket(struct mcon* mcon, mcon_session_idx session) {
     return mcon->sessions[session].socket_fd;
 }
-
-void mcon_session_set_data(struct mcon* mcon, mcon_session_idx session, void* data) {
-    
-}
-
-void* mcon_session_get_data(struct mcon* mcon, mcon_session_idx session) {
-    return NULL;
-}
