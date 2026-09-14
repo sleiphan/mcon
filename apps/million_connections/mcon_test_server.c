@@ -69,9 +69,6 @@ int main() {
     char input_buffer[64];
     char output_buffer[512];
 
-    struct bitset rdhup_fired;
-    bitset_create(&rdhup_fired, max_concurrent_sessions);
-
     printf("Server is now running and listening for incoming connections:\n\
 io_queue_size        = %d\n\
 session_count        = %d\n\
@@ -112,14 +109,11 @@ cfg.io_queue_size, cfg.session_count, cfg.max_live_accept_sqes, cfg.io_uring_que
                         break;
 
                     case MCON_EVENT_REMOTE_HANGUP:
-                        if (bitset_get(&rdhup_fired, evt.session)) {
+                        if (mcon_session_close(mcon, evt.session)) {
                             printf("multiple close()");
                             return -1;
                         }
-                        bitset_assign(&rdhup_fired, evt.session, 1);
-                        mcon_session_close(mcon, evt.session);
                         break;
-
                     case MCON_EVENT_CLOSE_COMPLETE:
                         if (evt.result != 0) {
                             perror("closing session");
@@ -133,7 +127,6 @@ cfg.io_queue_size, cfg.session_count, cfg.max_live_accept_sqes, cfg.io_uring_que
                         printf("MCON_EVENT_CLIENT_ERROR\n");
                         break;
                     case MCON_EVENT_NEW_CONNECTION:
-                        bitset_assign(&rdhup_fired, evt.session, 0);
                         break;
                     default:
                         printf("unhandled event\n");
