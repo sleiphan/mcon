@@ -10,6 +10,8 @@
 #include "mcon_type.h"
 #include "session_helpers.h"
 #include "constants.h"
+#include "mcon/mcon.h"
+#include "mcon_helpers.h"
 
 int _process_accept(struct mcon* mcon, struct io_uring_cqe* cqe, struct mcon_event* events, unsigned int max_events) {
     // If the SQE did not find any pending connection, simply skip and move on.
@@ -171,6 +173,9 @@ int _process_close(struct mcon* mcon, struct io_uring_cqe* cqe, const struct mco
 
     // Clear the "closing" state from the session
     mcon->sessions[io_entry.session].state &= ~MCON_SESSION_STATE_CLOSING;
+
+    if (mcon->state.is_shutting_down && mcon_active_session_count(mcon) == 0)
+        mcon_complete_shutdown(mcon);
 
     return 1;
 }

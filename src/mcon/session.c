@@ -1,4 +1,6 @@
 #include "mcon/session.h"
+#include "mcon/mcon.h"
+#include "mcon_helpers.h"
 #include "mcon_type.h"
 #include "io_uring_entry.h"
 #include "session_helpers.h"
@@ -116,6 +118,9 @@ int mcon_session_detach(struct mcon* mcon, const mcon_session_idx session) {
 
     // Make the session ready for a new connection
     session_reset_after_close(mcon, session);
+
+    if (mcon->state.is_shutting_down && mcon_active_session_count(mcon) == 0)
+        mcon_complete_shutdown(mcon);
 
     return 0;
 }
