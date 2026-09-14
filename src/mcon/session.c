@@ -1,6 +1,7 @@
 #include "mcon/session.h"
 #include "mcon_type.h"
 #include "io_uring_entry.h"
+#include "session_helpers.h"
 
 
 static inline void _set_sqe_data(struct io_uring_sqe* sqe, mcon_session_idx session, enum mcon_io_uring_operation operation) {
@@ -16,7 +17,7 @@ static inline void _set_sqe_data(struct io_uring_sqe* sqe, mcon_session_idx sess
 
 
 int mcon_session_read(struct mcon* mcon, mcon_session_idx session, void* buf, unsigned int count) {
-    if (mcon->sessions[session].state & MCON_SESSION_STATE_READING) {
+    if (mcon->sessions[session].state & (MCON_SESSION_STATE_READING | MCON_SESSION_STATE_CLOSING)) {
         errno = EBUSY;
         return -1;
     }
@@ -34,7 +35,7 @@ int mcon_session_read(struct mcon* mcon, mcon_session_idx session, void* buf, un
 }
 
 int mcon_session_write(struct mcon* mcon, mcon_session_idx session, const void* buf, unsigned int count) {
-    if (mcon->sessions[session].state & MCON_SESSION_STATE_WRITING) {
+    if (mcon->sessions[session].state & (MCON_SESSION_STATE_WRITING | MCON_SESSION_STATE_CLOSING)) {
         errno = EBUSY;
         return -1;
     }
@@ -52,7 +53,7 @@ int mcon_session_write(struct mcon* mcon, mcon_session_idx session, const void* 
 }
 
 int mcon_session_drain(struct mcon* mcon, mcon_session_idx session, unsigned int count) {
-    if (mcon->sessions[session].state & MCON_SESSION_STATE_READING) {
+    if (mcon->sessions[session].state & (MCON_SESSION_STATE_READING | MCON_SESSION_STATE_CLOSING)) {
         errno = EBUSY;
         return -1;
     }
@@ -101,6 +102,17 @@ int mcon_session_detach(struct mcon* mcon, const mcon_session_idx session) {
     // Return the session to the free stack
     if (idx_stack_push(&mcon->session_free_stack, session))
         return -1;
+
+    const int epoll_error = epoll_ctl(mcon->epoll_fd, EPOLL_CTL_DEL, mcon->sessions[session].socket_fd, NULL);
+    if (epoll_error) {
+        if (errno != ENOENT) {
+            // Pop the session again if the epoll operation failed to execute.
+            mcon_session_idx session_tmp;
+            idx_stack_pop(&mcon->session_free_stack, &session_tmp);
+        }
+
+        return -1;
+    }
 
     // Make the session ready for a new connection
     session_reset_after_close(mcon, session);
