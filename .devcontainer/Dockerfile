@@ -15,6 +15,7 @@ RUN apt update && apt install -y \
     gh \
     build-essential \
     gdb \
+    clang-format \
     cmake \
     man-db \
     liburing-dev \

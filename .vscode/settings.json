@@ -5,5 +5,13 @@
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "git.confirmDiscard": false,
     "git.confirmSync": false,
-    "explorer.confirmDelete": false
+    "explorer.confirmDelete": false,
+    "[cpp]": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "ms-vscode.cpptools"
+    },
+    "[c]": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "ms-vscode.cpptools"
+    }
 }
