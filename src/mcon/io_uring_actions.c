@@ -18,7 +18,7 @@ int enqueue_accept(struct mcon* mcon) {
     struct io_uring_sqe accept_sqe;
     io_uring_initialize_sqe(&accept_sqe);
     io_uring_prep_accept(&accept_sqe, mcon->server_socket_fd, NULL, NULL, 0);
-    accept_sqe.ioprio = IORING_ACCEPT_DONTWAIT; // TODO: local adaptation due to divergence between the container's and host's major kernel version. 
+    accept_sqe.ioprio = IORING_ACCEPT_DONTWAIT; // Ensure that the SQE is actually non-blocking.
     io_uring_sqe_set_data64(&accept_sqe, ((union mcon_io_uring_data) io_entry).data);
 
     return io_queue_push(&mcon->io_queue, accept_sqe);
