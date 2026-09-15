@@ -5,6 +5,18 @@
 #include "mcon_type.h"
 #include "session_helpers.h"
 
+#define VALIDATE_ARGS(incompatible_states)                                                         \
+    do {                                                                                           \
+        if (session >= mcon->configuration.session_count) {                                        \
+            errno = EINVAL;                                                                        \
+            return -1;                                                                             \
+        }                                                                                          \
+        if (mcon->sessions[session].state & (incompatible_states)) {                               \
+            errno = EBUSY;                                                                         \
+            return -1;                                                                             \
+        }                                                                                          \
+    } while (0)
+
 static inline void _set_sqe_data(struct io_uring_sqe *sqe, mcon_session_idx session,
                                  enum mcon_io_uring_operation operation) {
     // Prepare data entry
@@ -18,10 +30,7 @@ static inline void _set_sqe_data(struct io_uring_sqe *sqe, mcon_session_idx sess
 }
 
 int mcon_session_read(struct mcon *mcon, mcon_session_idx session, void *buf, unsigned int count) {
-    if (mcon->sessions[session].state & (MCON_SESSION_STATE_READING | MCON_SESSION_STATE_CLOSING)) {
-        errno = EBUSY;
-        return -1;
-    }
+    VALIDATE_ARGS(MCON_SESSION_STATE_READING | MCON_SESSION_STATE_CLOSING);
 
     struct io_uring_sqe read_sqe;
     io_uring_initialize_sqe(&read_sqe);
@@ -37,10 +46,7 @@ int mcon_session_read(struct mcon *mcon, mcon_session_idx session, void *buf, un
 
 int mcon_session_write(struct mcon *mcon, mcon_session_idx session, const void *buf,
                        unsigned int count) {
-    if (mcon->sessions[session].state & (MCON_SESSION_STATE_WRITING | MCON_SESSION_STATE_CLOSING)) {
-        errno = EBUSY;
-        return -1;
-    }
+    VALIDATE_ARGS(MCON_SESSION_STATE_WRITING | MCON_SESSION_STATE_CLOSING);
 
     struct io_uring_sqe write_sqe;
     io_uring_initialize_sqe(&write_sqe);
@@ -55,10 +61,7 @@ int mcon_session_write(struct mcon *mcon, mcon_session_idx session, const void *
 }
 
 int mcon_session_drain(struct mcon *mcon, mcon_session_idx session, unsigned int count) {
-    if (mcon->sessions[session].state & (MCON_SESSION_STATE_READING | MCON_SESSION_STATE_CLOSING)) {
-        errno = EBUSY;
-        return -1;
-    }
+    VALIDATE_ARGS(MCON_SESSION_STATE_READING | MCON_SESSION_STATE_CLOSING);
 
     struct io_uring_sqe recv_sqe;
     io_uring_initialize_sqe(&recv_sqe);
@@ -74,10 +77,7 @@ int mcon_session_drain(struct mcon *mcon, mcon_session_idx session, unsigned int
 }
 
 int mcon_session_close(struct mcon *mcon, mcon_session_idx session) {
-    if (mcon->sessions[session].state & MCON_SESSION_STATE_CLOSING) {
-        errno = EBUSY;
-        return -1;
-    }
+    VALIDATE_ARGS(MCON_SESSION_STATE_CLOSING);
 
     struct io_uring_sqe close_sqe;
     io_uring_initialize_sqe(&close_sqe);
@@ -92,13 +92,8 @@ int mcon_session_close(struct mcon *mcon, mcon_session_idx session) {
 }
 
 int mcon_session_detach(struct mcon *mcon, const mcon_session_idx session) {
-    static const uint8_t incompatible_states =
-        MCON_SESSION_STATE_READING | MCON_SESSION_STATE_WRITING | MCON_SESSION_STATE_CLOSING;
-
-    if (mcon->sessions[session].state & incompatible_states) {
-        errno = EBUSY;
-        return -1;
-    }
+    VALIDATE_ARGS(MCON_SESSION_STATE_READING | MCON_SESSION_STATE_WRITING |
+                  MCON_SESSION_STATE_CLOSING);
 
     // Return the session to the free stack
     if (idx_stack_push(&mcon->session_free_stack, session))
@@ -126,5 +121,7 @@ int mcon_session_detach(struct mcon *mcon, const mcon_session_idx session) {
 }
 
 int mcon_session_get_socket(struct mcon *mcon, mcon_session_idx session) {
+    VALIDATE_ARGS(0);
+
     return mcon->sessions[session].socket_fd;
 }
