@@ -27,19 +27,27 @@ void io_queue_destroy(struct io_queue *ioq) { kqueue_destroy(&ioq->queue); }
 
 int io_queue_push(struct io_queue *ioq, io_queue_entry entry) {
     const struct mcon_io_uring_entry sqe_data = ((union mcon_io_uring_data)entry.user_data).entry;
-    unsigned int priority = 0;
+    unsigned int priority;
 
     switch (sqe_data.operation) {
     case MCON_IO_SESSION_CLOSE:
         priority = 0;
+        break;
     case MCON_IO_SESSION_DRAIN:
         priority = 1;
+        break;
     case MCON_IO_SESSION_WRITE:
         priority = 2;
+        break;
     case MCON_IO_SESSION_READ:
         priority = 3;
+        break;
     case MCON_IO_SESSION_ACCEPT:
         priority = 4;
+        break;
+    default:
+        errno = EINVAL;
+        return -1;
     }
 
     return kqueue_push(&ioq->queue, priority, entry);

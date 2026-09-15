@@ -17,11 +17,11 @@
 #define MCON_EPOLL_ENTRY_RESERVED_SHIFT                                                            \
     (MCON_EPOLL_ENTRY_SESSION_SHIFT - MCON_EPOLL_ENTRY_RESERVED_SIZE)
 
-#define MCON_EPOLL_ENTRY_INSTANCE_MASK UINT64_C((1 << MCON_EPOLL_ENTRY_INSTANCE_SIZE) - 1)
-#define MCON_EPOLL_ENTRY_GENERATION_MASK UINT64_C((1 << MCON_EPOLL_ENTRY_GENERATION_SIZE) - 1)
-#define MCON_EPOLL_ENTRY_SOURCE_MASK UINT64_C((1 << MCON_EPOLL_ENTRY_SOURCE_SIZE) - 1)
-#define MCON_EPOLL_ENTRY_SESSION_MASK UINT64_C((1 << MCON_EPOLL_ENTRY_SESSION_SIZE) - 1)
-#define MCON_EPOLL_ENTRY_RESERVED_MASK UINT64_C((1 << MCON_EPOLL_ENTRY_RESERVED_SIZE) - 1)
+#define MCON_EPOLL_ENTRY_INSTANCE_MASK (UINT64_C((1 << MCON_EPOLL_ENTRY_INSTANCE_SIZE) - 1))
+#define MCON_EPOLL_ENTRY_GENERATION_MASK (UINT64_C((1 << MCON_EPOLL_ENTRY_GENERATION_SIZE) - 1))
+#define MCON_EPOLL_ENTRY_SOURCE_MASK (UINT64_C((1 << MCON_EPOLL_ENTRY_SOURCE_SIZE) - 1))
+#define MCON_EPOLL_ENTRY_SESSION_MASK (UINT64_C((1 << MCON_EPOLL_ENTRY_SESSION_SIZE) - 1))
+#define MCON_EPOLL_ENTRY_RESERVED_MASK (UINT64_C((1 << MCON_EPOLL_ENTRY_RESERVED_SIZE) - 1))
 
 #include <sys/epoll.h>
 
@@ -30,7 +30,6 @@
 enum mcon_epoll_source {
     MCON_EPOLL_SOURCE_UNKNOWN = 0,
     MCON_EPOLL_SOURCE_SERVER_SOCKET,
-    MCON_EPOLL_SOURCE_TIMEOUT,
     MCON_EPOLL_SOURCE_IO_URING,
     MCON_EPOLL_SOURCE_SESSION,
 };
@@ -55,11 +54,6 @@ struct mcon_epoll_entry {
 };
 
 static inline epoll_data_t mcon_encode_epoll_entry(const struct mcon_epoll_entry entry) {
-    static const unsigned int instance_shift = MCON_EPOLL_ENTRY_INSTANCE_SHIFT;
-    static const unsigned int generation_shift = MCON_EPOLL_ENTRY_GENERATION_SHIFT;
-    static const unsigned int source_shift = MCON_EPOLL_ENTRY_SOURCE_SHIFT;
-    static const unsigned int session_shift = MCON_EPOLL_ENTRY_SESSION_SHIFT;
-
     return (
         epoll_data_t)((uint64_t)(((uint64_t)entry.instance_id << MCON_EPOLL_ENTRY_INSTANCE_SHIFT) |
                                  ((uint64_t)entry.generation << MCON_EPOLL_ENTRY_GENERATION_SHIFT) |

@@ -50,7 +50,7 @@ int mcon_create(struct mcon **dst, struct mcon_config config) {
         goto allocate_mcon_instance;
 
     for (mcon_session_idx i = 0; i < config.session_count; i++)
-        session_init(sessions + 1);
+        session_init(sessions + i);
 
     for (mcon_session_idx i = 0; i < config.session_count; i++)
         idx_stack_push(&session_free_stack, (config.session_count - 1) - i);
@@ -189,13 +189,11 @@ int mcon_process_event(struct mcon *mcon, const struct epoll_event epoll_event,
 
     const struct mcon_epoll_entry event_data = mcon_decode_epoll_entry(epoll_event.data);
 
-    int err;
+    int err = -1;
     switch (event_data.source) {
     case MCON_EPOLL_SOURCE_SERVER_SOCKET:
         err = mcon_process_server_socket_event(mcon, epoll_event.events, event_data, events,
                                                event_capacity);
-        break;
-    case MCON_EPOLL_SOURCE_TIMEOUT:
         break;
     case MCON_EPOLL_SOURCE_IO_URING:
         err = mcon_process_io_uring_event(mcon, events, event_capacity);
