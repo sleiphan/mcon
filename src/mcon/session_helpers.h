@@ -2,6 +2,7 @@
 #define MCON_SESSION_HELPERS
 
 #include "mcon/types.h"
+#include "session_type.h"
 
 /// @brief Reset a session, making it ready to be allocated to a new client.
 /// @param mcon The mcon object that the session belongs to.
