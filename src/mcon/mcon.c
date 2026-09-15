@@ -1,3 +1,4 @@
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
@@ -11,6 +12,8 @@
 #include "session_helpers.h"
 
 int mcon_create(struct mcon **dst, struct mcon_config config) {
+    static _Atomic uint16_t instance_id_counter = 1;
+
     // Validate configuration
     if (!mcon_config_validate(config)) {
         errno = EINVAL;
@@ -55,9 +58,13 @@ int mcon_create(struct mcon **dst, struct mcon_config config) {
     for (mcon_session_idx i = 0; i < config.session_count; i++)
         idx_stack_push(&session_free_stack, (config.session_count - 1) - i);
 
+    uint16_t instance_id = atomic_fetch_add_explicit(&instance_id_counter, 1, memory_order_relaxed);
+    if (instance_id == 0)
+        instance_id = atomic_fetch_add_explicit(&instance_id_counter, 1, memory_order_relaxed);
+
     // Populate mcon instance
     *mcon = (struct mcon){
-        .instance_id = 0xAAAA, // TODO: allow for multiple mcon instances
+        .instance_id = instance_id,
         .epoll_fd = -1,
         .server_socket_fd = -1,
         .io_uring_eventfd = io_uring_eventfd,
