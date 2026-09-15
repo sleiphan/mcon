@@ -93,3 +93,5 @@ TEST(mcon, base_case) {
 
     mcon_destroy(mcon);
 }
+
+TEST(config, default_config_is_valid) { EXPECT_TRUE(mcon_config_validate(mcon_config_default)); }
