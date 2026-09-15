@@ -12,9 +12,7 @@ const struct mcon_config mcon_config_default = {
 bool mcon_config_validate(const struct mcon_config config) {
     return
         // Non-zero values
-        config.io_uring_queue_size > 0 &&
-        config.session_count > 0 &&
-        config.io_queue_size > 0 &&
+        config.io_uring_queue_size > 0 && config.session_count > 0 && config.io_queue_size > 0 &&
         config.max_live_accept_sqes > 0 &&
 
         // Checking imposed limits

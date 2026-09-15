@@ -1,8 +1,8 @@
 #ifndef MCON_TYPES
 #define MCON_TYPES
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef unsigned long long io_uring_data_t;
 

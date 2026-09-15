@@ -1,19 +1,15 @@
+#include <errno.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <errno.h>
-#include <fcntl.h>
 
 #include "mcon/socket.h"
 
-static int _prep_server_socket(
-    const int family,
-    const struct sockaddr* address,
-    const socklen_t addrlen,
-    const bool try_dual_stack
-) {
+static int _prep_server_socket(const int family, const struct sockaddr *address,
+                               const socklen_t addrlen, const bool try_dual_stack) {
     int socket_fd = socket(family, SOCK_STREAM | SOCK_NONBLOCK, 0);
     if (socket_fd < 0) {
         perror("socket");
@@ -57,16 +53,16 @@ static int _prep_server_socket(
     return socket_fd;
 }
 
-static bool _can_try_dual_stack(const struct addrinfo* address_info) {
+static bool _can_try_dual_stack(const struct addrinfo *address_info) {
     if (address_info->ai_family != AF_INET6) {
         return false;
     }
 
-    const struct sockaddr_in6* address = (const struct sockaddr_in6*) address_info->ai_addr;
+    const struct sockaddr_in6 *address = (const struct sockaddr_in6 *)address_info->ai_addr;
     return IN6_IS_ADDR_UNSPECIFIED(&address->sin6_addr);
 }
 
-int mcon_create_listening_socket(const uint16_t port, const char* bind_address) {
+int mcon_create_listening_socket(const uint16_t port, const char *bind_address) {
     char port_str[6];
     memset(port_str, 0, sizeof(port_str));
     snprintf(port_str, sizeof(port_str), "%d", port);
@@ -78,7 +74,7 @@ int mcon_create_listening_socket(const uint16_t port, const char* bind_address) 
     hints.ai_family = AF_UNSPEC;
     hints.ai_flags = AI_PASSIVE;
 
-    struct addrinfo* address_info_result;
+    struct addrinfo *address_info_result;
     int err = getaddrinfo(bind_address, port_str, &hints, &address_info_result);
     if (err != 0)
         return -1;
@@ -92,12 +88,7 @@ int mcon_create_listening_socket(const uint16_t port, const char* bind_address) 
             continue;
         }
 
-        socket_fd = _prep_server_socket(
-            rp->ai_family,
-            rp->ai_addr,
-            rp->ai_addrlen,
-            true
-        );
+        socket_fd = _prep_server_socket(rp->ai_family, rp->ai_addr, rp->ai_addrlen, true);
     }
 
     // If no dual-stack candidate worked, fall back to the remaining addresses.
@@ -107,12 +98,7 @@ int mcon_create_listening_socket(const uint16_t port, const char* bind_address) 
             continue;
         }
 
-        socket_fd = _prep_server_socket(
-            rp->ai_family,
-            rp->ai_addr,
-            rp->ai_addrlen,
-            false
-        );
+        socket_fd = _prep_server_socket(rp->ai_family, rp->ai_addr, rp->ai_addrlen, false);
     }
 
     freeaddrinfo(address_info_result);
@@ -125,14 +111,14 @@ enum mcon_socket_validation_error mcon_listening_socket_valid(const int listenin
     socklen_t listening_len = sizeof(listening);
     if (getsockopt(listening_socket, SOL_SOCKET, SO_ACCEPTCONN, &listening, &listening_len) != 0) {
         switch (errno) {
-            case EBADF:
-                errno = 0;
-                return MCON_SOCKET_NOT_A_FILE_DESCRIPTOR;
-            case ENOTSOCK:
-                errno = 0;
-                return MCON_SOCKET_NOT_A_SOCKET;
-            default:
-                return MCON_SOCKET_VALIDATION_ERROR;
+        case EBADF:
+            errno = 0;
+            return MCON_SOCKET_NOT_A_FILE_DESCRIPTOR;
+        case ENOTSOCK:
+            errno = 0;
+            return MCON_SOCKET_NOT_A_SOCKET;
+        default:
+            return MCON_SOCKET_VALIDATION_ERROR;
         }
     }
 

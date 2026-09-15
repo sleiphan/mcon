@@ -7,7 +7,7 @@ enum mcon_event_type {
     MCON_EVENT_NONE = 0,
     MCON_EVENT_NEW_CONNECTION,
     MCON_EVENT_NEW_CONNECTION_FAILED,
-    
+
     // Data has been received from a client, and it is
     // ready to be read.
     MCON_EVENT_READ_RDY,

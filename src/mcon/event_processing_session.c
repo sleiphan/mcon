@@ -1,9 +1,11 @@
 #include <stdbit.h>
 
-#include "event_processing.h"
 #include "constants.h"
+#include "event_processing.h"
 
-int mcon_process_session_event(struct mcon* mcon, const uint32_t epoll_events, const struct mcon_epoll_entry epoll_data, struct mcon_event* events, const unsigned int max_events) {
+int mcon_process_session_event(struct mcon *mcon, const uint32_t epoll_events,
+                               const struct mcon_epoll_entry epoll_data, struct mcon_event *events,
+                               const unsigned int max_events) {
     // Check validity of events
     int valid_events = (epoll_events & ~MCON_CLIENT_SOCKET_SUBSCRIBED_EVENTS) == 0;
 
@@ -30,7 +32,7 @@ int mcon_process_session_event(struct mcon* mcon, const uint32_t epoll_events, c
     int events_produced = 0;
 
     if (epoll_events & EPOLLIN) {
-        events[events_produced++] = (struct mcon_event) {
+        events[events_produced++] = (struct mcon_event){
             .result = 0,
             .session = epoll_data.session,
             .type = MCON_EVENT_READ_RDY,
@@ -38,7 +40,7 @@ int mcon_process_session_event(struct mcon* mcon, const uint32_t epoll_events, c
     }
 
     if (epoll_events & EPOLLHUP) {
-        events[events_produced++] = (struct mcon_event) {
+        events[events_produced++] = (struct mcon_event){
             .result = 0,
             .session = epoll_data.session,
             .type = MCON_EVENT_READ_SHUTDOWN,
@@ -47,7 +49,7 @@ int mcon_process_session_event(struct mcon* mcon, const uint32_t epoll_events, c
 
     if (epoll_events & EPOLLRDHUP) {
         if (!(mcon->sessions[epoll_data.session].state & MCON_SESSION_STATE_RDHUP))
-            events[events_produced++] = (struct mcon_event) {
+            events[events_produced++] = (struct mcon_event){
                 .result = 0,
                 .session = epoll_data.session,
                 .type = MCON_EVENT_REMOTE_HANGUP,
@@ -60,9 +62,10 @@ int mcon_process_session_event(struct mcon* mcon, const uint32_t epoll_events, c
     if (epoll_events & EPOLLERR) {
         int err;
         socklen_t len = sizeof(err);
-        return_code = getsockopt(mcon->sessions[epoll_data.session].socket_fd, SOL_SOCKET, SO_ERROR, &err, &len);
+        return_code = getsockopt(mcon->sessions[epoll_data.session].socket_fd, SOL_SOCKET, SO_ERROR,
+                                 &err, &len);
 
-        events[events_produced++] = (struct mcon_event) {
+        events[events_produced++] = (struct mcon_event){
             .result = err,
             .session = epoll_data.session,
             .type = MCON_EVENT_CLIENT_ERROR,

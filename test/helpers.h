@@ -1,7 +1,7 @@
 #include <arpa/inet.h>
 #include <sys/epoll.h>
 
-int connect_to_server(const char* server_address, uint16_t port) {
+int connect_to_server(const char *server_address, uint16_t port) {
     struct sockaddr_in server_address_sock;
     memset(&server_address_sock, 0, sizeof(server_address_sock));
     server_address_sock.sin_family = AF_INET;
@@ -14,7 +14,7 @@ int connect_to_server(const char* server_address, uint16_t port) {
         return -1;
     }
 
-    if (connect(client_fd, (sockaddr*)&server_address_sock, sizeof(server_address_sock)) != 0) {
+    if (connect(client_fd, (sockaddr *)&server_address_sock, sizeof(server_address_sock)) != 0) {
         perror("socket");
         return -1;
     }

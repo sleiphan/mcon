@@ -1,21 +1,21 @@
-#include <stdint.h>
 #include <argp.h>
-#include <netdb.h>
-#include <stdlib.h>
-#include <string.h>
 #include <arpa/inet.h>
 #include <liburing.h>
-#include <sys/socket.h>
-#include <unistd.h>
+#include <netdb.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
 #include <time.h>
-
-
+#include <unistd.h>
 
 static struct argp_option cli_options[] = {
-    {"port",         'p',  "PORT", 0, "The port that the client should try connecting to."},
-    {"host",         'H',  "HOST", 0, "The address that the client should try connecting to."},
-    {"source-range", 's', "RANGE", 0, "The IPv4 source address range to use when the amount of connections exceed 50k. Specified in CIDR notation."},
+    {"port", 'p', "PORT", 0, "The port that the client should try connecting to."},
+    {"host", 'H', "HOST", 0, "The address that the client should try connecting to."},
+    {"source-range", 's', "RANGE", 0,
+     "The IPv4 source address range to use when the amount of connections exceed 50k. Specified in "
+     "CIDR notation."},
 };
 
 struct ipv4_range {
@@ -40,19 +40,19 @@ struct cli_config cli_config_default() {
     return args;
 }
 
-int parse_port(const char* arg) {
-    char* end;
+int parse_port(const char *arg) {
+    char *end;
     errno = 0;
 
     long port = strtol(arg, &end, 10);
 
     if (errno == ERANGE || end == arg || *end != '\0')
         return -1;
-    
+
     if (port < 0 || port > UINT16_MAX)
         return -1;
 
-    return (int) port;
+    return (int)port;
 }
 
 int parse_source_range(const char *arg, struct ipv4_range *range_out) {
@@ -70,10 +70,7 @@ int parse_source_range(const char *arg, struct ipv4_range *range_out) {
 
     long prefix = strtol(arg + delimiter_index + 1, &end, 10);
 
-    if (errno == ERANGE ||
-        end == arg + delimiter_index + 1 ||
-        *end != '\0' ||
-        prefix < 0 ||
+    if (errno == ERANGE || end == arg + delimiter_index + 1 || *end != '\0' || prefix < 0 ||
         prefix > 32)
         return -1;
 
@@ -92,35 +89,35 @@ int parse_source_range(const char *arg, struct ipv4_range *range_out) {
     else
         host_mask = UINT32_MAX >> prefix;
 
-    range_out->first = (struct in_addr) {.s_addr = htonl(address_host)};
-    range_out->final = (struct in_addr) {.s_addr = htonl(address_host | host_mask)};
+    range_out->first = (struct in_addr){.s_addr = htonl(address_host)};
+    range_out->final = (struct in_addr){.s_addr = htonl(address_host | host_mask)};
 
     return 0;
 }
 
-static error_t parse_args(int key, char* arg, struct argp_state *state) {
-    struct cli_config* config = state->input;
+static error_t parse_args(int key, char *arg, struct argp_state *state) {
+    struct cli_config *config = state->input;
 
     switch (key) {
-        case 'p':
-            int port = parse_port(arg);
-            if (port == -1)
-                return ARGP_ERR_UNKNOWN;
-            config->port = (uint16_t) port;
-            break;
-
-        case 'H':
-            if (inet_pton(AF_INET, arg, &config->host) != 1)
-                return ARGP_ERR_UNKNOWN;
-            break;
-
-        case 's':
-            if (parse_source_range(arg, &config->source_range) != 0)
-                return ARGP_ERR_UNKNOWN;
-            break;
-
-        default:
+    case 'p':
+        int port = parse_port(arg);
+        if (port == -1)
             return ARGP_ERR_UNKNOWN;
+        config->port = (uint16_t)port;
+        break;
+
+    case 'H':
+        if (inet_pton(AF_INET, arg, &config->host) != 1)
+            return ARGP_ERR_UNKNOWN;
+        break;
+
+    case 's':
+        if (parse_source_range(arg, &config->source_range) != 0)
+            return ARGP_ERR_UNKNOWN;
+        break;
+
+    default:
+        return ARGP_ERR_UNKNOWN;
     }
 
     return 0;
@@ -131,20 +128,17 @@ static struct argp argp = {
     .parser = parse_args,
 };
 
-
-
-
-
 struct connection {
     int client_fd;
 };
 
 struct client_state {
-    struct connection* connections;
+    struct connection *connections;
     unsigned int connection_count;
 };
 
-int connect_to_server(const struct in_addr address, const uint16_t port, const struct in_addr* source_address) {
+int connect_to_server(const struct in_addr address, const uint16_t port,
+                      const struct in_addr *source_address) {
     struct sockaddr_in server_address_sock;
     memset(&server_address_sock, 0, sizeof(server_address_sock));
     server_address_sock.sin_family = AF_INET;
@@ -160,13 +154,15 @@ int connect_to_server(const struct in_addr address, const uint16_t port, const s
         source_address_sock.sin_family = AF_INET;
         source_address_sock.sin_addr = *source_address;
 
-        if (bind(client_fd, (const struct sockaddr*)&source_address_sock, sizeof(source_address_sock))) {
+        if (bind(client_fd, (const struct sockaddr *)&source_address_sock,
+                 sizeof(source_address_sock))) {
             close(client_fd);
             return -1;
         }
     }
 
-    const int connect_rc = connect(client_fd, (struct sockaddr*)&server_address_sock, sizeof(server_address_sock));
+    const int connect_rc =
+        connect(client_fd, (struct sockaddr *)&server_address_sock, sizeof(server_address_sock));
     if (connect_rc != 0)
         return -1;
 
@@ -184,7 +180,7 @@ int ping_server(struct cli_config args) {
     return 0;
 }
 
-int cli_ping_server(int argc, char **argv, struct cli_config args, struct client_state* state) {
+int cli_ping_server(int argc, char **argv, struct cli_config args, struct client_state *state) {
     if (argc > 1) {
         printf("Too many arguments\n");
         return 0;
@@ -200,7 +196,7 @@ int cli_ping_server(int argc, char **argv, struct cli_config args, struct client
     return 0;
 }
 
-int cli_exit(int argc, char **argv, struct cli_config args, struct client_state* state) {
+int cli_exit(int argc, char **argv, struct cli_config args, struct client_state *state) {
     if (argc > 1) {
         printf("Too many arguments\n");
         return 0;
@@ -209,7 +205,8 @@ int cli_exit(int argc, char **argv, struct cli_config args, struct client_state*
     return 1;
 }
 
-int get_source_address(const unsigned int connection_idx, const struct ipv4_range source_range, struct in_addr* out) {
+int get_source_address(const unsigned int connection_idx, const struct ipv4_range source_range,
+                       struct in_addr *out) {
     static const unsigned int CONNECTIONS_PER_SOURCE_ADDRESS = 25000;
 
     const uint32_t min_address = ntohl(source_range.first.s_addr);
@@ -229,21 +226,20 @@ int get_source_address(const unsigned int connection_idx, const struct ipv4_rang
     return 0;
 }
 
-bool iteration_timing(const time_t interval_ms, struct timespec* last_exectution) {
+bool iteration_timing(const time_t interval_ms, struct timespec *last_exectution) {
     struct timespec current_time;
     clock_gettime(CLOCK_MONOTONIC, &current_time);
 
-    const time_t time_passed_ms =
-        (current_time.tv_sec -  (*last_exectution).tv_sec)  * 1000 +
-        (current_time.tv_nsec - (*last_exectution).tv_nsec) / 1000000;
-    
+    const time_t time_passed_ms = (current_time.tv_sec - (*last_exectution).tv_sec) * 1000 +
+                                  (current_time.tv_nsec - (*last_exectution).tv_nsec) / 1000000;
+
     bool execute = time_passed_ms >= interval_ms;
     *last_exectution = execute ? current_time : *last_exectution;
 
     return execute;
 }
 
-int cli_connect(int argc, char **argv, struct cli_config args, struct client_state* state) {
+int cli_connect(int argc, char **argv, struct cli_config args, struct client_state *state) {
     if (argc > 2) {
         printf("Too many arguments\n");
         return 0;
@@ -254,7 +250,7 @@ int cli_connect(int argc, char **argv, struct cli_config args, struct client_sta
         return 0;
     }
 
-    char* end;
+    char *end;
     const long target_connections = strtol(argv[1], &end, 10);
 
     if (target_connections < 0) {
@@ -279,7 +275,8 @@ int cli_connect(int argc, char **argv, struct cli_config args, struct client_sta
             return 0;
         }
 
-        struct connection* new_mem = realloc(state->connections, target_connections * sizeof(struct connection));
+        struct connection *new_mem =
+            realloc(state->connections, target_connections * sizeof(struct connection));
         if (new_mem == NULL) {
             perror("realloc");
             return 0;
@@ -304,7 +301,8 @@ int cli_connect(int argc, char **argv, struct cli_config args, struct client_sta
             state->connections[i].client_fd = client_fd;
 
             if (iteration_timing(50, &last_excecution)) {
-                printf("\r\033[K %d / %d", state->connection_count + connections_established, target_connections);
+                printf("\r\033[K %d / %d", state->connection_count + connections_established,
+                       target_connections);
                 fflush(stdout);
             }
         }
@@ -319,7 +317,8 @@ int cli_connect(int argc, char **argv, struct cli_config args, struct client_sta
             close(state->connections[i].client_fd);
         }
 
-        struct connection* new_mem = realloc(state->connections, target_connections * sizeof(struct connection));
+        struct connection *new_mem =
+            realloc(state->connections, target_connections * sizeof(struct connection));
         if (new_mem == NULL && target_connections != 0) {
             perror("realloc");
             return 0;
@@ -335,23 +334,19 @@ int cli_connect(int argc, char **argv, struct cli_config args, struct client_sta
 
 struct command {
     const char *name;
-    int (*handler)(int argc, char **argv, struct cli_config cli_args, struct client_state* state);
+    int (*handler)(int argc, char **argv, struct cli_config cli_args, struct client_state *state);
 };
 
 static const struct command commands[] = {
-    { "ping",    cli_ping_server},
-    { "status",  NULL},
-    { "connect", cli_connect},
-    { "write",   NULL},
-    { "request", NULL},
-    { "exit",    cli_exit},
+    {"ping", cli_ping_server}, {"status", NULL},  {"connect", cli_connect},
+    {"write", NULL},           {"request", NULL}, {"exit", cli_exit},
 };
 
 int command_line_loop(struct cli_config args) {
-    char* command_str = NULL;
+    char *command_str = NULL;
     size_t command_length = 0;
     const unsigned int command_count = sizeof(commands) / sizeof(struct command);
-    char* argv[20];
+    char *argv[20];
     unsigned int argc = 0;
 
     struct client_state state = {
@@ -366,10 +361,10 @@ int command_line_loop(struct cli_config args) {
             return -1;
         }
 
-        char* savetoken;
-        char* token = strtok_r(command_str, " \t\n", &savetoken);
+        char *savetoken;
+        char *token = strtok_r(command_str, " \t\n", &savetoken);
         argc = 0;
-        while (token != NULL && argc < (sizeof(argv)/sizeof(char*))) {
+        while (token != NULL && argc < (sizeof(argv) / sizeof(char *))) {
             argv[argc++] = token;
             token = strtok_r(NULL, " \t\n", &savetoken);
         }
@@ -391,10 +386,6 @@ int command_line_loop(struct cli_config args) {
     }
 }
 
-
-
-
-
 void print_run_config(struct cli_config args) {
     char host_str[INET_ADDRSTRLEN];
     char first_str[INET_ADDRSTRLEN];
@@ -408,7 +399,8 @@ void print_run_config(struct cli_config args) {
 host         = %s\n\
 port         = %d\n\
 source_range = %s - %s\n\
-", host_str, args.port, first_str, final_str);
+",
+           host_str, args.port, first_str, final_str);
 }
 
 int main(int argc, char **argv) {

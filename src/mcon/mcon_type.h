@@ -1,14 +1,13 @@
 #ifndef MCON_TYPE
 #define MCON_TYPE
 
-
 #include <liburing.h>
 
-#include "mcon/types.h"
-#include "index_stack.h"
 #include "epoll_entry.h"
-#include "session_type.h"
+#include "index_stack.h"
 #include "io_queue.h"
+#include "mcon/types.h"
+#include "session_type.h"
 
 struct mcon_state {
     uint16_t sqe_in_flight;
@@ -26,7 +25,7 @@ struct mcon {
 
     struct mcon_config configuration;
 
-    struct mcon_session* sessions;
+    struct mcon_session *sessions;
     struct idx_stack session_free_stack;
 
     struct io_uring ring;
