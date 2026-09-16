@@ -33,6 +33,37 @@ jobs:
           sudo apt update
           sudo apt install -y build-essential cmake liburing-dev libctools-dev
 
+      - name: Debug io_uring environment
+        run: |
+          echo "=== OS ==="
+          cat /etc/os-release
+
+          echo "=== Packages ==="
+          dpkg-query -W -f='${Package} ${Version}\n' \
+            liburing-dev liburing2 linux-libc-dev || true
+
+          echo "=== APT candidates ==="
+          apt-cache policy liburing-dev linux-libc-dev || true
+
+          echo "=== IORING_ACCEPT_DONTWAIT ==="
+          grep -R -n "IORING_ACCEPT_DONTWAIT" \
+            /usr/include/linux/io_uring.h \
+            /usr/include/liburing/io_uring.h 2>/dev/null || true
+
+          echo "=== IORING_ACCEPT_MULTISHOT ==="
+          grep -R -n "IORING_ACCEPT_MULTISHOT" \
+            /usr/include/linux/io_uring.h \
+            /usr/include/liburing/io_uring.h 2>/dev/null || true
+
+          echo "=== io_uring_initialize_sqe ==="
+          grep -R -n "io_uring_initialize_sqe" \
+            /usr/include/liburing.h \
+            /usr/include/liburing 2>/dev/null || true
+
+          echo "=== Header locations ==="
+          dpkg -L liburing-dev | grep -E '/(liburing|io_uring)\.h$' || true
+          dpkg -L linux-libc-dev | grep '/linux/io_uring.h$' || true
+
       - name: Build
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF
