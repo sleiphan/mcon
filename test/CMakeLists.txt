@@ -27,3 +27,10 @@ add_executable(${TEST} detaching_socket.cpp)
 target_link_libraries(${TEST} PRIVATE ${PROJECT_NAME} GTest::gtest_main)
 target_include_directories(${TEST} PRIVATE ${CMAKE_SOURCE_DIR}/src/${PROJECT_NAME})
 gtest_discover_tests(${TEST})
+
+
+set(TEST "T-inactive_sessions.cpp")
+add_executable(${TEST} inactive_sessions.cpp)
+target_link_libraries(${TEST} PRIVATE ${PROJECT_NAME} GTest::gtest_main)
+target_include_directories(${TEST} PRIVATE ${CMAKE_SOURCE_DIR}/src/${PROJECT_NAME})
+gtest_discover_tests(${TEST})
