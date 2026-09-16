@@ -1,4 +1,4 @@
-FROM debian:latest AS base
+FROM debian:trixie AS base
 
 # Install necessary dependencies for setup
 RUN apt update && apt install -y curl gnupg

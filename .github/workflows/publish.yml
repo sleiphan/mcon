@@ -13,6 +13,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    container:
+      image: debian:trixie
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,18 +23,18 @@ jobs:
       - name: Add custom debian repo
         run: |
           # Install necessary dependencies for setup
-          sudo apt update && sudo apt install -y curl gnupg
+          apt update && apt install -y curl gnupg
 
           # Add my personal package repository
-          echo "deb [signed-by=/usr/share/keyrings/myrepo.gpg] https://sleiphan.github.io/debian-repo stable main" | sudo tee /etc/apt/sources.list.d/myrepo.list
+          echo "deb [signed-by=/usr/share/keyrings/myrepo.gpg] https://sleiphan.github.io/debian-repo stable main" | tee /etc/apt/sources.list.d/myrepo.list
 
           # Add my package repository's public gpg key
           curl -fsSL https://sleiphan.github.io/debian-repo/public.key | gpg --dearmor -o /usr/share/keyrings/myrepo.gpg
 
       - name: Install build dependencies
         run: |
-          sudo apt update
-          sudo apt install -y build-essential cmake liburing-dev libctools-dev
+          apt update
+          apt install -y build-essential cmake liburing-dev libctools-dev
 
       - name: Debug io_uring environment
         run: |
