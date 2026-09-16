@@ -6,6 +6,5 @@ includedir=${prefix}/include
 Name: @PROJECT_NAME@
 Description: @PROJECT_DESCRIPTION@
 Version: @PROJECT_VERSION@
-Requires: ctools
 Libs: -l@PROJECT_NAME@
 Cflags: -I${includedir}
