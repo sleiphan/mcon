@@ -36,7 +36,7 @@ int mcon_create(struct mcon **dst, struct mcon_config config) {
 
     // Allocate and setup the io_queue
     struct io_queue io_queue;
-    if (io_queue_create(&io_queue, config.session_count))
+    if (io_queue_create(&io_queue, config.io_queue_size))
         goto allocate_io_queue;
 
     struct mcon_session *sessions = malloc(config.session_count * sizeof(struct mcon_session));
