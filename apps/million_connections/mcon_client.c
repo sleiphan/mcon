@@ -1,7 +1,7 @@
 #include <argp.h>
 #include <arpa/inet.h>
-#include <liburing.h>
 #include <netdb.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

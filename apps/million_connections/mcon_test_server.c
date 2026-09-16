@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <ctools/bitset.h>
 #include <mcon/mcon.h>
 #include <mcon/socket.h>
 #include <sys/socket.h>
