@@ -11,7 +11,8 @@
             errno = EINVAL;                                                                        \
             return -1;                                                                             \
         }                                                                                          \
-        if (mcon->sessions[session].state & (incompatible_states)) {                               \
+        if (!mcon_session_is_active(mcon, session) ||                                              \
+            (mcon->sessions[session].state & (incompatible_states))) {                             \
             errno = EBUSY;                                                                         \
             return -1;                                                                             \
         }                                                                                          \
@@ -77,7 +78,8 @@ int mcon_session_drain(struct mcon *mcon, mcon_session_idx session, unsigned int
 }
 
 int mcon_session_close(struct mcon *mcon, mcon_session_idx session) {
-    VALIDATE_ARGS(MCON_SESSION_STATE_CLOSING);
+    VALIDATE_ARGS(MCON_SESSION_STATE_READING | MCON_SESSION_STATE_WRITING |
+                  MCON_SESSION_STATE_CLOSING);
 
     struct io_uring_sqe close_sqe;
     io_uring_initialize_sqe(&close_sqe);
@@ -124,4 +126,13 @@ int mcon_session_get_socket(struct mcon *mcon, mcon_session_idx session) {
     VALIDATE_ARGS(0);
 
     return mcon->sessions[session].socket_fd;
+}
+
+bool mcon_session_is_active(struct mcon *mcon, mcon_session_idx session) {
+    if (session >= mcon->configuration.session_count) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    return mcon->sessions[session].socket_fd != -1;
 }
