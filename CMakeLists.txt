@@ -17,6 +17,7 @@ set(CMAKE_PDB_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pdb)
 
 
 include(GNUInstallDirs)
+include(cmake/check_io_uring_features.cmake)
 
 
 add_subdirectory(src)
