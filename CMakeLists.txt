@@ -7,7 +7,7 @@ endif()
 set(PROJECT_NAME "mcon")
 
 project(${PROJECT_NAME}
-    VERSION 0.0.2
+    VERSION 0.0.3
     DESCRIPTION ""
     LANGUAGES CXX C)
 
