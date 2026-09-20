@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Håkon F. Fjellanger
+// All rights reserved. See LICENSE file for details.
+
 #include "mcon/limits.h"
 
 mcon_session_idx mcon_max_session_count(void) { return ((1 << 20) - 1); }

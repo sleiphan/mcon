@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Håkon F. Fjellanger
+// All rights reserved. See LICENSE file for details.
+
 #include "mcon/session.h"
 #include "io_uring_entry.h"
 #include "mcon/mcon.h"

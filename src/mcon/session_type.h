@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Håkon F. Fjellanger
+// All rights reserved. See LICENSE file for details.
+
 #ifndef MCON_SESSION_TYPE
 #define MCON_SESSION_TYPE
 
